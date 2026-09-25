@@ -35,6 +35,7 @@ import {
   ValidationError,
 } from '../../core/api/editor-api';
 import { errorMessage } from '../../core/api/error-message';
+import { AccountService } from '../../core/auth/account';
 import { HasUnsavedChanges } from '../../core/guards/unsaved-changes.guard';
 import { NOTATIONS, NotationId } from './notations';
 import { DiagramCanvas, paletteDrag } from '../../shared/diagram-editor/diagram-canvas';
@@ -47,6 +48,7 @@ import {
   SaveDialogLabels,
   SaveRequest,
 } from '../../shared/editor/model-save-dialog';
+import { GuidedTour, TourStep } from '../../shared/editor/guided-tour';
 import {
   LeaveChoice,
   LeaveConfirmation,
@@ -77,6 +79,7 @@ type ConflictChoice = 'overwrite' | 'newVersion' | 'discard';
     SkeletonModule,
     TooltipModule,
     DiagramCanvas,
+    GuidedTour,
     ModelSaveDialog,
     PropertyPanel,
     StencilIcon,
@@ -91,6 +94,7 @@ export class DiagramEditorPage implements HasUnsavedChanges {
   private readonly translate = inject(TranslateService);
   private readonly messages = inject(MessageService);
   private readonly injector = inject(Injector);
+  private readonly account = inject(AccountService);
 
   /** Route parameter. */
   readonly modelId = input.required<string>();
@@ -175,6 +179,38 @@ export class DiagramEditorPage implements HasUnsavedChanges {
   protected readonly conflict = signal<{ request: SaveRequest; user: string } | null>(null);
   protected readonly conflictChoice = signal<ConflictChoice | null>(null);
   protected readonly leave = new LeaveConfirmation();
+
+  // Guided tour (the original's seven steps, with its texts)
+
+  protected readonly tourSteps = computed<TourStep[]>(() => [
+    {
+      title: 'TOUR.WELCOME-TITLE',
+      content: 'TOUR.WELCOME-CONTENT',
+      params: { userName: this.account.account()?.firstName || this.account.displayName() },
+    },
+    {
+      target: 'aside.palette',
+      title: 'TOUR.PALETTE-TITLE',
+      // The original text ends in an animation of opening a group.
+      content:
+        'All the elements you can add are here, arranged in groups. Click a group to open it, or type in the search box to find an element.',
+    },
+    { target: 'fm-diagram-canvas', title: 'TOUR.CANVAS-TITLE', content: 'TOUR.CANVAS-CONTENT' },
+    {
+      target: 'fm-diagram-canvas',
+      title: 'TOUR.DRAGDROP-TITLE',
+      content:
+        'Drag an element from the palette onto the canvas, or click it to add it in the middle of the view. ' +
+        'Then select it and use its quick menu to add and connect the next element.',
+    },
+    {
+      target: 'aside.properties',
+      title: 'TOUR.PROPERTIES-TITLE',
+      content: 'TOUR.PROPERTIES-CONTENT',
+    },
+    { target: '.toolbar', title: 'TOUR.TOOLBAR-TITLE', content: 'TOUR.TOOLBAR-CONTENT' },
+    { title: 'TOUR.END-TITLE', content: 'TOUR.END-CONTENT' },
+  ]);
 
   // Validation
 

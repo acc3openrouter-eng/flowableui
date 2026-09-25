@@ -11,7 +11,7 @@ import {
   untracked,
   viewChild,
 } from '@angular/core';
-import { TranslatePipe } from '@ngx-translate/core';
+import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { TooltipModule } from '@openng/optimus-ui/tooltip';
 import {
   DiagramDocument,
@@ -56,6 +56,7 @@ const MIN_DRAG = 3;
   },
 })
 export class DiagramCanvas {
+  private readonly translate = inject(TranslateService);
   readonly doc = input.required<DiagramDocument>();
   readonly zoom = input(1);
   readonly zoomChange = output<number>();
@@ -634,6 +635,14 @@ export class DiagramCanvas {
     else if (mod && key === 'a') doc.selectAll();
     else if (key === 'delete' || key === 'backspace') doc.deleteSelection();
     else if (key === 'f2' && doc.selection().length === 1) this.startEdit(doc.selection()[0]);
+    else if (key === 'tab' && !mod && doc.selection().length) this.cycle(event.shiftKey ? -1 : 1);
+    else if (key === 'enter' && !mod && !doc.selection().length) this.cycle(1);
+    else if (key === 'enter' && !mod && this.single()?.opens)
+      this.openRequested.emit(doc.selection()[0]);
+    else if (!mod && (key === '+' || key === '='))
+      this.zoomChange.emit(Math.min(2.5, this.zoom() * 1.1));
+    else if (!mod && key === '-') this.zoomChange.emit(Math.max(0.1, this.zoom() / 1.1));
+    else if (!mod && key === '0') this.zoomChange.emit(1);
     else if (key.startsWith('arrow') && doc.selection().length) {
       const step = mod ? 5 : 20;
       const dx = key === 'arrowleft' ? -step : key === 'arrowright' ? step : 0;
@@ -740,7 +749,30 @@ export class DiagramCanvas {
   }
 
   /** Scrolls so that a shape is visible and selects it (used by validation results). */
-  reveal(id: string) {
+  /** Moves the selection to the next (or previous) element in drawing order, for keyboard users. */
+  private cycle(step: 1 | -1) {
+    const doc = this.doc();
+    const ids = [...doc.paintOrder().map((n) => n.id), ...doc.state().edgeOrder];
+    if (!ids.length) return;
+    const current = ids.indexOf(doc.selection()[0]);
+    const next =
+      current < 0 ? (step > 0 ? 0 : ids.length - 1) : (current + step + ids.length) % ids.length;
+    this.reveal(ids[next], true);
+  }
+
+  /** Text read by screen readers when the selection changes. */
+  protected readonly announcement = computed(() => {
+    const doc = this.doc();
+    const ids = doc.selection();
+    if (ids.length > 1) return `${ids.length} elements selected`;
+    const el = ids.length ? (doc.state().nodes[ids[0]] ?? doc.state().edges[ids[0]]) : null;
+    if (!el) return '';
+    const kind = this.translate.instant(doc.stencilOf(el)?.title ?? el.stencil);
+    const name = String(el.properties['name'] ?? '').trim();
+    return name ? `${kind} ${name} selected` : `${kind} selected`;
+  });
+
+  reveal(id: string, onlyIfHidden = false) {
     const state = this.doc().state();
     const node = state.nodes[id];
     const edge = state.edges[id];
@@ -749,6 +781,14 @@ export class DiagramCanvas {
     if (!box) return;
     const el = this.scroller().nativeElement;
     const z = this.zoom();
+    if (
+      onlyIfHidden &&
+      box.x * z >= el.scrollLeft &&
+      box.y * z >= el.scrollTop &&
+      (box.x + box.w) * z <= el.scrollLeft + el.clientWidth &&
+      (box.y + box.h) * z <= el.scrollTop + el.clientHeight
+    )
+      return;
     el.scrollTo({
       left: Math.max(0, (box.x + box.w / 2) * z - el.clientWidth / 2),
       top: Math.max(0, (box.y + box.h / 2) * z - el.clientHeight / 2),

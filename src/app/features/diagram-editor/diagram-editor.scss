@@ -283,6 +283,11 @@
     flex-direction: column;
     gap: 0.375rem;
   }
+
+  p-button {
+    display: block;
+    margin-top: 0.75rem;
+  }
 }
 
 .conflict-text {

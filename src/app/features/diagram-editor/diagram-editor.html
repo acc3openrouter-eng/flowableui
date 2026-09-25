@@ -367,12 +367,26 @@
           steps).
         </li>
         <li>
+          On the canvas, Enter selects the first element and Tab / Shift+Tab move to the next or
+          previous one. Enter opens a selected collapsed sub-process; Esc clears the selection.
+        </li>
+        <li>+ and - zoom in and out, 0 resets the zoom.</li>
+        <li>
           Ctrl+Z undo, Ctrl+Y redo, Ctrl+C/X/V copy, cut and paste, Ctrl+A select all, Ctrl+S save.
         </li>
         <li>Ctrl+scroll zooms; hold Alt or the middle mouse button and drag to pan.</li>
       </ul>
+      <p-button
+        label="Take the tour"
+        icon="pi pi-directions"
+        size="small"
+        [outlined]="true"
+        (onClick)="tips.hide(); tour.start()"
+      />
     </div>
   </p-popover>
+
+  <fm-guided-tour #tour [steps]="tourSteps()" />
 
   <fm-model-save-dialog
     [labels]="saveLabels"
