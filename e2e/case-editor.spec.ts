@@ -1,4 +1,4 @@
-import { REST, expect, save, test } from './fixtures';
+import { REST, expect, rename, save, select, test } from './fixtures';
 
 test('docks a criterion, links it to a task and exports the sentry', async ({ page, models }) => {
   const model = await models.create('case');
@@ -29,12 +29,10 @@ test('docks a criterion, links it to a task and exports the sentry', async ({ pa
   );
   const first = page.locator(`g.dg-node[data-id="${ids[0]}"]`);
   const second = page.locator(`g.dg-node[data-id="${ids[1]}"]`);
-  await first.click();
-  await page.locator('#prop-name').fill('Review');
-  await page.locator('#prop-name').press('Enter');
-  await second.click();
-  await page.locator('#prop-name').fill('Approve');
-  await page.locator('#prop-name').press('Enter');
+  await select(page, first);
+  await rename(page, 'Review');
+  await select(page, second);
+  await rename(page, 'Approve');
 
   // Dropped on the left border of "Approve", the entry criterion docks there.
   const target = (await second.boundingBox())!;
@@ -43,7 +41,7 @@ test('docks a criterion, links it to a task and exports the sentry', async ({ pa
   await expect(criterion).toHaveCount(1);
 
   // Connect "Review" to the criterion with the quick menu's arrow.
-  await first.click();
+  await select(page, first);
   const arrow = page.locator('.quick-item.connect');
   await expect(arrow).toBeVisible();
   const from = (await arrow.boundingBox())!;

@@ -1,4 +1,4 @@
-import { Page, expect, test as base } from '@playwright/test';
+import { Locator, Page, expect, test as base } from '@playwright/test';
 
 export const REST = '/flowable-ui/modeler-app/rest';
 export const USER = {
@@ -81,4 +81,24 @@ export async function save(page: Page) {
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('.unsaved')).toHaveCount(0);
+}
+
+/** Selects a diagram element and waits until the property panel shows it. */
+export async function select(page: Page, element: Locator) {
+  await element.click();
+  await expectPanelOn(page, element);
+}
+
+/** Waits until the property panel shows this diagram element (for example one just added). */
+export async function expectPanelOn(page: Page, element: Locator) {
+  const id = await element.getAttribute('data-id');
+  await expect(page.locator('fm-property-panel')).toHaveAttribute('data-element', id!);
+}
+
+/** Renames the element shown in the property panel. */
+export async function rename(page: Page, name: string) {
+  const input = page.locator('#prop-name');
+  await input.fill(name);
+  await input.press('Enter');
+  await expect(input).toHaveValue(name);
 }

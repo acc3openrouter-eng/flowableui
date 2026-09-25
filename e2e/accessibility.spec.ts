@@ -4,6 +4,10 @@ import { ModelKind, expect, test } from './fixtures';
 
 /** Serious and critical WCAG 2.1 A/AA problems on the page, as readable lines. */
 async function audit(page: Page) {
+  // Audit the settled page: colors caught halfway through a transition are not what users read.
+  await page.addStyleTag({
+    content: '*, *::before, *::after { transition: none !important; animation: none !important; }',
+  });
   const result = await new AxeBuilder({ page })
     .withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'])
     .analyze();

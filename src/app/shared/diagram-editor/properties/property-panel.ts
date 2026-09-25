@@ -62,6 +62,8 @@ export function conditionText(value: unknown): string {
  */
 @Component({
   selector: 'fm-property-panel',
+  // Which element the rows belong to (lets tests wait for a selection to reach the panel).
+  host: { '[attr.data-element]': 'element()?.id ?? null' },
   imports: [
     FormsModule,
     TranslatePipe,
