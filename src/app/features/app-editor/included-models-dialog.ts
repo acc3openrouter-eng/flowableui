@@ -189,7 +189,7 @@ export function toAppModelReference(model: ModelRepresentation & { stencilSet?: 
       border: 0;
       border-radius: var(--p-border-radius-md);
       background: none;
-      color: var(--p-text-muted-color);
+      color: var(--fm-text-secondary);
       font: inherit;
       font-weight: 500;
       font-size: 0.875rem;
@@ -217,7 +217,7 @@ export function toAppModelReference(model: ModelRepresentation & { stencilSet?: 
     }
     .empty {
       text-align: center;
-      color: var(--p-text-muted-color);
+      color: var(--fm-text-secondary);
       padding: 3rem 0;
     }
     .pick {
