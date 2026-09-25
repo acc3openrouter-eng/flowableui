@@ -1,4 +1,8 @@
-import { DiagramProfile, BPMN_PROFILE } from '../../shared/diagram-editor/diagram-profile';
+import {
+  BPMN_PROFILE,
+  DMN_PROFILE,
+  DiagramProfile,
+} from '../../shared/diagram-editor/diagram-profile';
 
 export type NotationId = 'bpmn' | 'cmmn' | 'dmn';
 
@@ -38,9 +42,9 @@ export const NOTATIONS: Record<NotationId, NotationConfig> = {
     validate: false,
   },
   dmn: {
-    profile: BPMN_PROFILE,
+    profile: DMN_PROFILE,
     stencilSet: 'dmneditor',
-    stencilsetUrl: '../editor/stencilsets/dmn1.2/dmn1.2.json',
+    stencilsetUrl: '../editor/stencilsets/dmn1.1/dmn1.2.json',
     library: '/decision-services',
     typeLabel: 'Decision service',
     idProperty: 'drd_id',

@@ -657,6 +657,13 @@ const COMPLEX: Record<string, PropertyEditor> = {
     title: 'PROPERTY.DECISIONTABLEREFERENCE.TITLE',
     empty: 'PROPERTY.DECISIONTABLEREFERENCE.EMPTY',
   },
+  // Decision in a decision service.
+  decisiondecisiontablereference: {
+    kind: 'reference',
+    source: 'decision-tables',
+    title: 'PROPERTY.DECISIONTABLEREFERENCE.TITLE',
+    empty: 'PROPERTY.DECISIONTABLEREFERENCE.EMPTY',
+  },
   decisiontaskdecisionservicereference: {
     kind: 'reference',
     source: 'decision-services',

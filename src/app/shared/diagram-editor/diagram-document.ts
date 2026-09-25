@@ -12,6 +12,7 @@ import {
   withDefaults,
 } from './diagram-model';
 import { Box, Point, boxOfPoints, center, clipToOutline, inBox, unionBox } from './geometry';
+import { PoolLayout } from './diagram-profile';
 import { Stencil, StencilSet } from './stencil-set';
 import { EdgeView, NodeLayout, NodeView } from './stencil-view';
 
@@ -325,9 +326,14 @@ export class DiagramDocument {
     this.update((draft) => {
       createNode(this, draft, id, stencilId, at, parentId);
       if (hostId) attach(draft, draft.nodes[id], draft.nodes[hostId], at);
-      if (stencilId === 'Pool') addLane(this, draft, id);
-      if (stencilId === 'Lane' && parentId && draft.nodes[parentId]?.stencil === 'Pool') {
-        layoutPool(draft, parentId);
+      const lanes = this.stencils.profile.lanes;
+      if (lanes.isPool(stencilId)) addLane(this, draft, id);
+      if (
+        lanes.isLane(stencilId) &&
+        parentId &&
+        lanes.isPool(draft.nodes[parentId]?.stencil ?? '')
+      ) {
+        layoutPool(draft, parentId, lanes);
       }
     });
     this.selection.set([id]);
@@ -409,10 +415,16 @@ export class DiagramDocument {
     });
   }
 
+  /** Can the element be deleted, cut or copied? */
+  canDelete(id: string): boolean {
+    const el = this.state().nodes[id] ?? this.state().edges[id];
+    return !!el && !this.stencils.profile.undeletable.has(el.stencil);
+  }
+
   deleteSelection() {
-    const ids = this.selection();
+    const ids = this.selection().filter((id) => this.canDelete(id));
     if (!ids.length) return;
-    this.update((draft) => deleteElements(draft, new Set(ids)));
+    this.update((draft) => deleteElements(draft, new Set(ids), this.stencils.profile.lanes));
     this.selection.set([]);
   }
 
@@ -429,7 +441,7 @@ export class DiagramDocument {
 
   copy(cut = false) {
     const state = this.committed();
-    const ids = new Set(this.selection());
+    const ids = new Set(this.selection().filter((id) => this.canDelete(id)));
     const nodes = new Set<string>();
     const add = (id: string) => {
       const n = state.nodes[id];
@@ -717,6 +729,7 @@ export function moveElements(
   dx: number,
   dy: number,
 ) {
+  const lanes = doc.stencils.profile.lanes;
   const moved = new Set<string>();
   const addNode = (id: string) => {
     const n = draft.nodes[id];
@@ -749,10 +762,9 @@ export function moveElements(
   const pools = new Set<string>();
   for (const id of moved) {
     const n = draft.nodes[id];
-    if (n.stencil === 'Lane' && n.parent && !moved.has(n.parent)) pools.add(n.parent);
+    if (lanes.isLane(n.stencil) && n.parent && !moved.has(n.parent)) pools.add(n.parent);
   }
-  pools.forEach((p) => layoutPool(draft, p));
-  void doc;
+  pools.forEach((p) => layoutPool(draft, p, lanes));
 }
 
 /** Scales the dock points of edges and boundary events on a node that changed size. */
@@ -780,14 +792,15 @@ export function resizeNode(doc: DiagramDocument, draft: DiagramState, id: string
   const old = { ...n.bounds };
   n.bounds = { x: box.x, y: box.y, w: size.w, h: size.h };
   scaleDocks(draft, id, old, n.bounds);
-  if (n.stencil === 'Pool') layoutPool(draft, id, old);
-  if (n.stencil === 'Lane' && n.parent && draft.nodes[n.parent]?.stencil === 'Pool') {
-    layoutPool(draft, n.parent);
+  const lanes = doc.stencils.profile.lanes;
+  if (lanes.isPool(n.stencil)) layoutPool(draft, id, lanes, old);
+  if (lanes.isLane(n.stencil) && n.parent && lanes.isPool(draft.nodes[n.parent]?.stencil ?? '')) {
+    layoutPool(draft, n.parent, lanes);
   }
 }
 
 /** Deletes elements with their children, boundary events and connected edges. */
-export function deleteElements(draft: DiagramState, ids: Set<string>) {
+export function deleteElements(draft: DiagramState, ids: Set<string>, lanes: PoolLayout) {
   const nodes = new Set<string>();
   const add = (id: string) => {
     const n = draft.nodes[id];
@@ -800,7 +813,7 @@ export function deleteElements(draft: DiagramState, ids: Set<string>) {
   const pools = new Set<string>();
   for (const id of nodes) {
     const n = draft.nodes[id];
-    if (n.stencil === 'Lane' && n.parent && !nodes.has(n.parent)) pools.add(n.parent);
+    if (lanes.isLane(n.stencil) && n.parent && !nodes.has(n.parent)) pools.add(n.parent);
     if (n.parent && draft.nodes[n.parent]) {
       const p = draft.nodes[n.parent];
       p.children = p.children.filter((c) => c !== id);
@@ -819,29 +832,36 @@ export function deleteElements(draft: DiagramState, ids: Set<string>) {
   }
   draft.edgeOrder = draft.edgeOrder.filter((e) => draft.edges[e]);
   // Sequence flow order lists may point at deleted flows.
-  pools.forEach((p) => layoutPool(draft, p));
+  pools.forEach((p) => layoutPool(draft, p, lanes));
 }
-
-const POOL_CAPTION = 30;
 
 function addLane(doc: DiagramDocument, draft: DiagramState, poolId: string) {
   const pool = draft.nodes[poolId];
   const id = newResourceId();
+  const caption = doc.stencils.profile.lanes.caption;
   createNode(doc, draft, id, 'Lane', center(pool.bounds), poolId);
   const lane = draft.nodes[id];
   lane.bounds = {
-    x: pool.bounds.x + POOL_CAPTION,
+    x: pool.bounds.x + caption,
     y: pool.bounds.y,
-    w: pool.bounds.w - POOL_CAPTION,
+    w: pool.bounds.w - caption,
     h: pool.bounds.h,
   };
 }
 
 /** Stacks a pool's lanes to the right of its caption; the pool takes their total height. */
-export function layoutPool(draft: DiagramState, poolId: string, previous?: Box) {
+export function layoutPool(
+  draft: DiagramState,
+  poolId: string,
+  layout: PoolLayout,
+  previous?: Box,
+) {
   const pool = draft.nodes[poolId];
   if (!pool) return;
-  const lanes = pool.children.map((c) => draft.nodes[c]).filter((n) => n?.stencil === 'Lane');
+  const lanes = pool.children
+    .map((c) => draft.nodes[c])
+    .filter((n) => n && layout.isLane(n.stencil));
+  const caption = layout.caption;
   if (!lanes.length) return;
   lanes.sort((a, b) => a.bounds.y - b.bounds.y);
   const total = lanes.reduce((sum, l) => sum + l.bounds.h, 0);
@@ -850,10 +870,10 @@ export function layoutPool(draft: DiagramState, poolId: string, previous?: Box) 
   let y = pool.bounds.y;
   for (const lane of lanes) {
     const h = Math.max(30, lane.bounds.h * scale);
-    const dx = pool.bounds.x + POOL_CAPTION - lane.bounds.x;
+    const dx = pool.bounds.x + caption - lane.bounds.x;
     const dy = y - lane.bounds.y;
     const old = { ...lane.bounds };
-    lane.bounds = { x: pool.bounds.x + POOL_CAPTION, y, w: pool.bounds.w - POOL_CAPTION, h };
+    lane.bounds = { x: pool.bounds.x + caption, y, w: pool.bounds.w - caption, h };
     if (dx || dy) shiftDescendants(draft, lane.id, dx, dy);
     if (old.w !== lane.bounds.w || old.h !== lane.bounds.h)
       scaleDocks(draft, lane.id, old, lane.bounds);

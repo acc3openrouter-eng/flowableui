@@ -190,28 +190,32 @@
           </button>
         </div>
       }
-      <div class="shape-actions" [style.left.px]="b.x * z" [style.top.px]="(b.y + b.h) * z + 8">
-        <button
-          type="button"
-          class="quick-item"
-          [pTooltip]="'BUTTON.ACTION.DELETE.TOOLTIP' | translate"
-          [attr.aria-label]="'BUTTON.ACTION.DELETE.TOOLTIP' | translate"
-          (click)="doc().deleteSelection()"
-        >
-          <i class="pi pi-trash"></i>
-        </button>
-        @if (one.morph) {
-          <button
-            type="button"
-            class="quick-item"
-            [pTooltip]="'BUTTON.ACTION.MORPH.TOOLTIP' | translate"
-            [attr.aria-label]="'BUTTON.ACTION.MORPH.TOOLTIP' | translate"
-            (click)="openMorph($event, one.node.id)"
-          >
-            <i class="pi pi-wrench"></i>
-          </button>
-        }
-      </div>
+      @if (one.deletable || one.morph) {
+        <div class="shape-actions" [style.left.px]="b.x * z" [style.top.px]="(b.y + b.h) * z + 8">
+          @if (one.deletable) {
+            <button
+              type="button"
+              class="quick-item"
+              [pTooltip]="'BUTTON.ACTION.DELETE.TOOLTIP' | translate"
+              [attr.aria-label]="'BUTTON.ACTION.DELETE.TOOLTIP' | translate"
+              (click)="doc().deleteSelection()"
+            >
+              <i class="pi pi-trash"></i>
+            </button>
+          }
+          @if (one.morph) {
+            <button
+              type="button"
+              class="quick-item"
+              [pTooltip]="'BUTTON.ACTION.MORPH.TOOLTIP' | translate"
+              [attr.aria-label]="'BUTTON.ACTION.MORPH.TOOLTIP' | translate"
+              (click)="openMorph($event, one.node.id)"
+            >
+              <i class="pi pi-wrench"></i>
+            </button>
+          }
+        </div>
+      }
     }
 
     @if (editing(); as e) {

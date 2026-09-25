@@ -113,6 +113,7 @@ export class DiagramCanvas {
       stencil,
       resizable: view.resizableH || view.resizableV,
       quick: this.doc().stencils.profile.hasQuickMenu(stencil),
+      deletable: this.doc().canDelete(node.id),
       morph: this.doc().stencils.morphOptions(stencil).length > 0,
     };
   });
@@ -211,7 +212,10 @@ export class DiagramCanvas {
       this.drag = {
         kind: 'move',
         start: p,
-        ids: doc.selection(),
+        // Sections of a decision service only move with the service.
+        ids: doc
+          .selection()
+          .filter((s) => !doc.stencils.profile.unmovable(doc.state().nodes[s]?.stencil ?? '')),
         moved: false,
         anchor: doc.selection().length === 1 ? (node ?? null) : null,
       };

@@ -2,12 +2,14 @@
   <div class="kind">
     @if (multiple()) {
       {{ doc().selectedElements().length }} elements selected
-    } @else {
+    } @else if (element()) {
       {{ stencil()?.title ?? '' | translate }}
+    } @else {
+      {{ rootLabel() }}
     }
   </div>
   <h2 class="title" [title]="title()">{{ multiple() ? '' : title() }}</h2>
-  @if (!multiple()) {
+  @if (!multiple() && rows().length > 6) {
     <p-iconfield class="filter">
       <p-inputicon styleClass="pi pi-search" />
       <input
@@ -137,7 +139,13 @@
         }
       </div>
     } @empty {
-      <p class="note">No properties match "{{ filter() }}".</p>
+      <p class="note">
+        @if (filter().trim()) {
+          No properties match "{{ filter() }}".
+        } @else {
+          This element has no properties.
+        }
+      </p>
     }
   </div>
 }

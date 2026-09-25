@@ -76,6 +76,19 @@ export class DiagramRenderer {
         .render(layout, node.properties, refs, `${node.id}_`);
       const g = r?.g ?? (document.createElementNS(SVG_NS, 'g') as SVGGElement);
       g.replaceChildren(view);
+      const caption = this.doc.stencils.profile.caption?.(node.stencil);
+      if (caption) {
+        const text = document.createElementNS(SVG_NS, 'text');
+        text.setAttribute('class', 'dg-caption');
+        text.setAttribute('x', '12');
+        text.setAttribute('y', '20');
+        text.setAttribute('font-size', '11');
+        text.setAttribute('font-weight', '600');
+        text.setAttribute('fill', '#64748b');
+        text.setAttribute('pointer-events', 'none');
+        text.textContent = caption;
+        g.appendChild(text);
+      }
       g.setAttribute('class', 'dg-node');
       g.setAttribute('data-id', node.id);
       g.setAttribute('data-stencil', node.stencil);
