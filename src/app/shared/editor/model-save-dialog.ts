@@ -17,6 +17,8 @@ export interface SaveRequest {
   comment: string;
   /** Only sent for decision tables. */
   forceDmn11: boolean;
+  /** Only for app definitions: publish after saving. */
+  publish: boolean;
   close: boolean;
 }
 
@@ -102,10 +104,18 @@ export interface SaveDialogInitial {
             [(ngModel)]="description"
           ></textarea>
         </div>
-        <label class="check">
-          <p-checkbox [binary]="true" name="newVersion" [(ngModel)]="newVersion" />
-          {{ 'MODEL.SAVE.NEWVERSION' | translate }}
-        </label>
+        @if (showNewVersion()) {
+          <label class="check">
+            <p-checkbox [binary]="true" name="newVersion" [(ngModel)]="newVersion" />
+            {{ 'MODEL.SAVE.NEWVERSION' | translate }}
+          </label>
+        }
+        @if (showPublish()) {
+          <label class="check">
+            <p-checkbox [binary]="true" name="publish" [(ngModel)]="publish" />
+            {{ 'APP.POPUP.PUBLISH-FIELD' | translate }}
+          </label>
+        }
         @if (showForceDmn11()) {
           <label class="check">
             <p-checkbox [binary]="true" name="forceDmn11" [(ngModel)]="forceDmn11" />
@@ -192,6 +202,9 @@ export class ModelSaveDialog {
   readonly labels = input.required<SaveDialogLabels>();
   readonly initial = input.required<SaveDialogInitial>();
   readonly showForceDmn11 = input(false);
+  /** App definitions are saved in place, without versions or comments. */
+  readonly showNewVersion = input(true);
+  readonly showPublish = input(false);
   /** Translation key of a non-blocking warning shown above the buttons. */
   readonly warning = input<string | null>(null);
   readonly saving = input(false);
@@ -205,6 +218,7 @@ export class ModelSaveDialog {
   protected newVersion = false;
   protected comment = '';
   protected forceDmn11 = false;
+  protected publish = false;
 
   constructor() {
     effect(() => {
@@ -217,6 +231,7 @@ export class ModelSaveDialog {
         this.newVersion = false;
         this.comment = '';
         this.forceDmn11 = !!initial.forceDmn11;
+        this.publish = false;
       });
     });
   }
@@ -230,6 +245,7 @@ export class ModelSaveDialog {
       newVersion: this.newVersion,
       comment: this.newVersion ? this.comment : '',
       forceDmn11: this.forceDmn11,
+      publish: this.showPublish() && this.publish,
       close,
     });
   }

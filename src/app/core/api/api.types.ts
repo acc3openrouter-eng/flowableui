@@ -154,7 +154,9 @@ export interface AppModelReference {
   name: string;
   version?: number;
   modelType?: ModelType;
-  description?: string;
+  description?: string | null;
+  stencilSetId?: number | null;
+  createdBy?: string;
   lastUpdatedBy?: string;
   lastUpdated?: number;
 }
@@ -165,6 +167,8 @@ export interface AppDefinitionRepresentation {
   key: string;
   description?: string | null;
   version?: number;
+  /** Epoch milliseconds. */
+  created?: number;
   definition: {
     models?: AppModelReference[];
     cmmnModels?: AppModelReference[];
@@ -173,6 +177,23 @@ export interface AppDefinitionRepresentation {
     usersAccess?: string;
     groupsAccess?: string;
   };
+}
+
+export interface AppDefinitionSaveRepresentation {
+  appDefinition: AppDefinitionRepresentation;
+  /** Also publish (deploy) the app after saving. */
+  publish: boolean;
+  force?: boolean;
+}
+
+/** `PUT /rest/app-definitions/{id}` answers 200 even when publishing failed; check `error`. */
+export interface AppDefinitionUpdateResult {
+  appDefinition?: AppDefinitionRepresentation;
+  error?: boolean;
+  errorType?: number;
+  errorDescription?: string;
+  message?: string;
+  messageKey?: string;
 }
 
 /** `POST /rest/models/{id}/history/{historyId}` answers with the models the restored version refers to but cannot find. */
