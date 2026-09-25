@@ -14,9 +14,11 @@ const details = (kind: string, title: string) => ({
   title: `${title} · Flowable Modeler`,
 });
 
-const soon = (title: string, back: string) => ({
-  loadComponent: () => import('./features/placeholder/coming-soon').then((m) => m.ComingSoon),
-  data: { title, back },
+const diagramEditor = (notation: string, title: string) => ({
+  loadComponent: () =>
+    import('./features/diagram-editor/diagram-editor').then((m) => m.DiagramEditorPage),
+  canDeactivate: [unsavedChangesGuard],
+  data: { notation },
   title: `${title} · Flowable Modeler`,
 });
 
@@ -92,17 +94,11 @@ export const routes: Routes = [
         canDeactivate: [unsavedChangesGuard],
         title: 'App definition editor · Flowable Modeler',
       },
-      {
-        path: 'editor/:modelId',
-        loadComponent: () =>
-          import('./features/process-editor/process-editor').then((m) => m.ProcessEditor),
-        canDeactivate: [unsavedChangesGuard],
-        title: 'Process editor · Flowable Modeler',
-      },
-      { path: 'case-editor/:modelId', ...soon('Case editor', '/casemodels') },
+      { path: 'editor/:modelId', ...diagramEditor('bpmn', 'Process editor') },
+      { path: 'case-editor/:modelId', ...diagramEditor('cmmn', 'Case editor') },
       {
         path: 'decision-service-editor/:modelId',
-        ...soon('Decision service editor', '/decision-services'),
+        ...diagramEditor('dmn', 'Decision service editor'),
       },
     ],
   },

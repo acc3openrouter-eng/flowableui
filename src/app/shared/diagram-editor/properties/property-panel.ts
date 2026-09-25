@@ -35,6 +35,9 @@ import { ReferenceDialog } from './reference-dialog';
 import { RowsDialog } from './rows-dialog';
 
 interface PanelRow {
+  /** Element the row edits (null: the diagram), fixed when the row is built. An input that
+   * loses focus because another element was clicked still writes to its own element. */
+  owner: string | null;
   /** Unique per element and property, so inputs are rebuilt when the selection changes. */
   track: string;
   prop: StencilProperty;
@@ -83,6 +86,8 @@ export class PropertyPanel implements OnDestroy {
   readonly doc = input.required<DiagramDocument>();
   /** Shown as the title when the element has no name. */
   readonly modelName = input('');
+  /** Shown above the title when nothing is selected. */
+  readonly rootLabel = input('Process');
 
   protected readonly filter = signal('');
 
@@ -109,7 +114,8 @@ export class PropertyPanel implements OnDestroy {
 
   protected readonly title = computed(() => {
     const name = String(this.properties()?.['name'] ?? '').trim();
-    return name || this.modelName();
+    // The model name stands for the root only; an unnamed element shows just its kind.
+    return this.element() ? name : name || this.modelName();
   });
 
   protected readonly rows = computed<PanelRow[]>(() => {
@@ -123,6 +129,7 @@ export class PropertyPanel implements OnDestroy {
       if (!editor) continue;
       const value = props[prop.key];
       out.push({
+        owner: this.element()?.id ?? null,
         track: `${owner}:${prop.key}`,
         prop,
         editor,
@@ -153,6 +160,31 @@ export class PropertyPanel implements OnDestroy {
     ];
   }
 
+  /** Plan items a timer listener can start on: every plan item in the case except itself. */
+  protected readonly planItemOptions = computed(() => {
+    const doc = this.doc();
+    const self = this.element()?.id;
+    const items = Object.values(doc.state().nodes)
+      .filter((n) => n.id !== self && !n.host && n.stencil !== 'CasePlanModel')
+      .filter((n) => {
+        const stencil = doc.stencils.stencil(n.stencil);
+        return !!stencil && !doc.stencils.isBoundaryEvent(stencil);
+      })
+      .map((n) => ({ value: n.id, label: stripTags(String(n.properties['name'] ?? '')) || n.id }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return [{ value: '', label: '' }, ...items];
+  });
+
+  protected planItemId(value: unknown): string {
+    const v = complexValue(value) as Row | null;
+    return v && typeof v === 'object' ? String(v['id'] ?? '') : '';
+  }
+
+  protected setPlanItem(row: PanelRow, id: string) {
+    const option = this.planItemOptions().find((o) => o.value === id);
+    this.set(row, id && option ? { id, name: option.label } : '');
+  }
+
   // Inline edits: kept here until blur/Enter, and flushed if the selection changes first.
   private pending: { elementId: string | null; key: string; value: unknown } | null = null;
 
@@ -172,7 +204,7 @@ export class PropertyPanel implements OnDestroy {
   }
 
   protected edit(row: PanelRow, value: unknown) {
-    this.pending = { elementId: this.element()?.id ?? null, key: row.prop.key, value };
+    this.pending = { elementId: row.owner, key: row.prop.key, value };
   }
 
   /** Writes a pending inline edit. */
@@ -185,26 +217,26 @@ export class PropertyPanel implements OnDestroy {
 
   protected commitString(row: PanelRow, value: string) {
     this.pending = null;
-    this.write(this.element()?.id ?? null, row.prop.key, stripTags(value));
+    this.write(row.owner, row.prop.key, stripTags(value));
   }
 
   protected commitText(row: PanelRow, value: string) {
     this.pending = null;
-    this.write(this.element()?.id ?? null, row.prop.key, value);
+    this.write(row.owner, row.prop.key, value);
   }
 
   protected commitCondition(value: string, row: PanelRow) {
     this.pending = null;
     const text = value.trim() ? value : '';
     this.write(
-      this.element()?.id ?? null,
+      row.owner,
       row.prop.key,
       text ? { expression: { type: 'static', staticValue: value } } : null,
     );
   }
 
   protected set(row: PanelRow, value: unknown) {
-    this.write(this.element()?.id ?? null, row.prop.key, value);
+    this.write(row.owner, row.prop.key, value);
   }
 
   private write(elementId: string | null, key: string, value: unknown) {
@@ -228,7 +260,7 @@ export class PropertyPanel implements OnDestroy {
 
   protected open(row: PanelRow) {
     this.flush();
-    this.dialog.set({ row, elementId: this.element()?.id ?? null });
+    this.dialog.set({ row, elementId: row.owner });
     this.dialogVisible.set(true);
   }
 

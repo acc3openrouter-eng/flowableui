@@ -1,3 +1,4 @@
+import { BPMN_PROFILE, DiagramProfile } from './diagram-profile';
 /** The stencil set JSON served by `GET /rest/stencil-sets/{editor|cmmneditor|dmneditor}`. */
 export interface StencilSetJson {
   title: string;
@@ -81,16 +82,6 @@ export interface PaletteGroup {
   items: Stencil[];
 }
 
-/** Stencils that the palette does not list (the edges are drawn from the quick menu instead). */
-const PALETTE_IGNORED = new Set([
-  'SequenceFlow',
-  'MessageFlow',
-  'Association',
-  'DataAssociation',
-  'DataStore',
-  'SendTask',
-]);
-
 /** Indexed stencil set with the rule checks the editor needs. */
 export class StencilSet {
   readonly namespace: string;
@@ -100,7 +91,10 @@ export class StencilSet {
   private readonly containment = new Map<string, Set<string>>();
   private readonly morphing: { role: string; baseMorphs: string[]; preserveBounds: boolean }[];
 
-  constructor(readonly json: StencilSetJson) {
+  constructor(
+    readonly json: StencilSetJson,
+    readonly profile: DiagramProfile = BPMN_PROFILE,
+  ) {
     this.namespace = json.namespace;
     const packages = new Map(json.propertyPackages.map((p) => [p.name, p.properties]));
     this.stencils = json.stencils.map((s) => {
@@ -222,9 +216,9 @@ export class StencilSet {
     return false;
   }
 
-  /** Is this stencil a boundary event that attaches to an activity's border? */
+  /** Does this stencil dock on another shape's border (a boundary event or a sentry)? */
   isBoundaryEvent(stencil: Stencil): boolean {
-    return stencil.rawRoles.includes('IntermediateEventOnActivityBoundary');
+    return this.profile.dockedRoles.some((r) => stencil.rawRoles.includes(r));
   }
 
   /** May `event` be attached to `host`'s border? */
@@ -255,7 +249,7 @@ export class StencilSet {
       if (!s.group || s.removed || /\.DIAGRAM$|^Diagram$/i.test(s.group)) continue;
       const group = groups.get(s.group) ?? { title: s.group, items: [] };
       groups.set(s.group, group);
-      if (!PALETTE_IGNORED.has(s.id)) group.items.push(s);
+      if (!this.profile.paletteIgnored.has(s.id)) group.items.push(s);
     }
     return [...groups.values()].filter((g) => g.items.length);
   }

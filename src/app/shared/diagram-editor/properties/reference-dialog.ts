@@ -24,7 +24,8 @@ import { ModelRepresentation, ResultList } from '../../../core/api/api.types';
 import { EditorApi } from '../../../core/api/editor-api';
 import { Row, complexValue } from './property-editors';
 
-export type ReferenceSource = 'forms' | 'decision-tables' | 'decision-services';
+export type ReferenceSource =
+  'forms' | 'decision-tables' | 'decision-services' | 'case-models' | 'processes';
 
 /** Picks the form, decision table or decision service a task refers to. */
 @Component({
@@ -186,6 +187,8 @@ export class ReferenceDialog {
   readonly title = input('');
   readonly source = input.required<ReferenceSource>();
   readonly value = input<unknown>(null);
+  /** The model being edited, left out of the case model list. */
+  readonly excludeId = input('');
   readonly save = output<unknown>();
 
   protected readonly models = signal<ModelRepresentation[]>([]);
@@ -211,12 +214,14 @@ export class ReferenceDialog {
     this.filter.set('');
     this.loading.set(true);
     this.error.set(null);
-    const request: Observable<ResultList<ModelRepresentation>> =
-      this.source() === 'forms'
-        ? this.api.formModels()
-        : this.source() === 'decision-tables'
-          ? this.api.decisionTableModels()
-          : this.api.decisionServiceModels();
+    const requests: Record<ReferenceSource, () => Observable<ResultList<ModelRepresentation>>> = {
+      forms: () => this.api.formModels(),
+      'decision-tables': () => this.api.decisionTableModels(),
+      'decision-services': () => this.api.decisionServiceModels(),
+      'case-models': () => this.api.caseModels(this.excludeId()),
+      processes: () => this.api.processModels(),
+    };
+    const request = requests[this.source()]();
     request.subscribe({
       next: (r) => {
         this.models.set(r.data ?? []);

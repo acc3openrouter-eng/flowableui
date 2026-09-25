@@ -1,3 +1,4 @@
+import type { ReferenceSource } from './reference-dialog';
 /** How the property panel edits each property, and how it summarises complex values. */
 
 export type Row = Record<string, unknown>;
@@ -44,11 +45,12 @@ export type PropertyEditor =
   | { kind: 'assignment' }
   | {
       kind: 'reference';
-      source: 'forms' | 'decision-tables' | 'decision-services';
+      source: ReferenceSource;
       title: string;
       empty: string;
     }
   | { kind: 'condition' }
+  | { kind: 'planitem' }
   | { kind: 'flow-order' };
 
 const opt = (...values: string[]) => values.map((v) => ({ value: v, label: v }));
@@ -402,6 +404,64 @@ const FORM_PROPERTIES: ListDef = {
   emptyText: 'PROPERTY.FORMPROPERTIES.EMPTY',
 };
 
+const CMMN_STATES = opt(
+  'active',
+  'available',
+  'enabled',
+  'disabled',
+  'completed',
+  'failed',
+  'suspended',
+  'closed',
+  'terminated',
+  'wait_repetition',
+  'async-active',
+);
+
+/** Case plan item lifecycle listeners: a transition between two states instead of an event. */
+const LIFECYCLE_LISTENERS: ListDef = {
+  wrapper: 'planItemLifecycleListeners',
+  columns: [
+    { key: 'sourceState', label: 'PROPERTY.PLANITEMLIFECYCLELISTENERS.SOURCE_STATE' },
+    { key: 'targetState', label: 'PROPERTY.PLANITEMLIFECYCLELISTENERS.TARGET_STATE' },
+    { key: 'implementation', label: 'PROPERTY.EXECUTIONLISTENERS.FIELDS.IMPLEMENTATION' },
+  ],
+  fields: [
+    {
+      key: 'sourceState',
+      label: 'PROPERTY.PLANITEMLIFECYCLELISTENERS.SOURCE_STATE',
+      type: 'select',
+      options: CMMN_STATES,
+    },
+    {
+      key: 'targetState',
+      label: 'PROPERTY.PLANITEMLIFECYCLELISTENERS.TARGET_STATE',
+      type: 'select',
+      options: CMMN_STATES,
+    },
+    { key: 'className', label: 'PROPERTY.PLANITEMLIFECYCLELISTENERS.CLASS', type: 'text' },
+    { key: 'expression', label: 'PROPERTY.TASKLISTENERS.EXPRESSION', type: 'text' },
+    { key: 'delegateExpression', label: 'PROPERTY.TASKLISTENERS.DELEGATEEXPRESSION', type: 'text' },
+  ],
+  newRow: () => ({
+    sourceState: 'available',
+    targetState: 'active',
+    implementation: '',
+    className: '',
+    expression: '',
+    delegateExpression: '',
+    fields: [],
+  }),
+  load: (row) => ({ ...row, fields: Array.isArray(row['fields']) ? row['fields'] : [] }),
+  clean: (row) => ({
+    ...row,
+    implementation: firstOf(row, 'className', 'expression', 'delegateExpression'),
+  }),
+  nested: { key: 'fields', title: 'Fields', def: LISTENER_FIELDS },
+  // The original's text for this key says "task listener".
+  emptyText: 'No lifecycle listener selected',
+};
+
 const VARIABLE_AGGREGATIONS: ListDef = {
   wrapper: 'aggregations',
   columns: [
@@ -657,6 +717,62 @@ const COMPLEX: Record<string, PropertyEditor> = {
     title: 'PROPERTY.DECISIONTABLEREFERENCE.TITLE',
     empty: 'PROPERTY.DECISIONTABLEREFERENCE.EMPTY',
   },
+  // Case model editor.
+  planitemlifecyclelisteners: rows(
+    LIFECYCLE_LISTENERS,
+    '',
+    'PROPERTY.PLANITEMLIFECYCLELISTENERS.VALUE',
+    'PROPERTY.PLANITEMLIFECYCLELISTENERS.EMPTY',
+  ),
+  repetition_variableaggregations: rows(
+    VARIABLE_AGGREGATIONS,
+    '',
+    'PROPERTY.VARIABLE.AGGREGATIONS.VALUE',
+    'PROPERTY.VARIABLE.AGGREGATIONS.EMPTY',
+  ),
+  casetaskinparameters: rows(
+    PARAMETERS('inParameters'),
+    '',
+    'PROPERTY.INPARAMETERS.VALUE',
+    'PROPERTY.INPARAMETERS.EMPTY',
+  ),
+  processtaskinparameters: rows(
+    PARAMETERS('inParameters'),
+    '',
+    'PROPERTY.INPARAMETERS.VALUE',
+    'PROPERTY.INPARAMETERS.EMPTY',
+  ),
+  casetaskoutparameters: rows(
+    PARAMETERS('outParameters'),
+    '',
+    'PROPERTY.OUTPARAMETERS.VALUE',
+    'PROPERTY.OUTPARAMETERS.EMPTY',
+  ),
+  processtaskoutparameters: rows(
+    PARAMETERS('outParameters'),
+    '',
+    'PROPERTY.OUTPARAMETERS.VALUE',
+    'PROPERTY.OUTPARAMETERS.EMPTY',
+  ),
+  casetaskcasereference: {
+    kind: 'reference',
+    source: 'case-models',
+    title: 'PROPERTY.CASEREFERENCE.TITLE',
+    empty: 'PROPERTY.CASEREFERENCE.EMPTY',
+  },
+  processtaskprocessreference: {
+    kind: 'reference',
+    source: 'processes',
+    title: 'PROPERTY.PROCESSREFERENCE.TITLE',
+    empty: 'PROPERTY.PROCESSREFERENCE.EMPTY',
+  },
+  // Decision in a decision service.
+  decisiondecisiontablereference: {
+    kind: 'reference',
+    source: 'decision-tables',
+    title: 'PROPERTY.DECISIONTABLEREFERENCE.TITLE',
+    empty: 'PROPERTY.DECISIONTABLEREFERENCE.EMPTY',
+  },
   decisiontaskdecisionservicereference: {
     kind: 'reference',
     source: 'decision-services',
@@ -677,6 +793,8 @@ const SELECTS: Record<string, { value: string; label: string }[]> = {
   ],
   'flowable-channeltype': [{ value: '', label: '' }, ...opt('jms', 'kafka', 'rabbitmq')],
   'flowable-calledelementtype': opt('key', 'id'),
+  'flowable-transitionevent': opt('complete', 'exit', 'occur', 'start', 'terminate'),
+  'flowable-triggermode': opt('default', 'onEvent'),
   'flowable-variablechangetype': [
     { value: 'all', label: 'All' },
     { value: 'create', label: 'Create only' },
@@ -698,6 +816,7 @@ const DEFINITION_REFS: Record<
 export function editorFor(key: string, type: string): PropertyEditor | null {
   if (type === 'complex' || type === 'multiplecomplex') return COMPLEX[key] ?? null;
   if (SELECTS[type]) return { kind: 'select', options: SELECTS[type] };
+  if (type === 'flowable-planitem-dropdown') return { kind: 'planitem' };
   if (type === 'string' && DEFINITION_REFS[key]) {
     return { kind: 'definition-ref', definitions: DEFINITION_REFS[key] };
   }
@@ -766,6 +885,11 @@ export function summarize(editor: PropertyEditor, value: unknown): Summary {
       return text
         ? { key: '', text: truncate(text) }
         : { key: 'PROPERTY.SEQUENCEFLOW.CONDITION.NO-CONDITION-DISPLAY', empty: true };
+    }
+    case 'planitem': {
+      const v = complexValue(value) as Row | null;
+      const name = v && typeof v === 'object' ? String(v['name'] ?? v['id'] ?? '') : '';
+      return name ? { key: '', text: truncate(name) } : { key: 'PROPERTY.EMPTY', empty: true };
     }
     case 'flow-order': {
       const v = complexValue(value) as Row | null;

@@ -36,6 +36,7 @@ import {
 } from '../../core/api/editor-api';
 import { errorMessage } from '../../core/api/error-message';
 import { HasUnsavedChanges } from '../../core/guards/unsaved-changes.guard';
+import { NOTATIONS, NotationId } from './notations';
 import { DiagramCanvas, paletteDrag } from '../../shared/diagram-editor/diagram-canvas';
 import { DiagramDocument } from '../../shared/diagram-editor/diagram-document';
 import { PropertyPanel } from '../../shared/diagram-editor/properties/property-panel';
@@ -53,16 +54,15 @@ import {
 } from '../../shared/editor/unsaved-changes-dialog';
 
 /** Where the original editor points `stencilset.url` when a model has none. */
-const DEFAULT_STENCILSET_URL = '../editor/stencilsets/bpmn2.0/bpmn2.0.json';
 const MIN_ZOOM = 0.1;
 const MAX_ZOOM = 2.5;
 const MAX_FIT_ZOOM = 1.5;
 
 type ConflictChoice = 'overwrite' | 'newVersion' | 'discard';
 
-/** The BPMN process editor: palette, canvas, property panel, toolbar, save and validation. */
+/** The BPMN, CMMN and decision service editor: palette, canvas, property panel, toolbar, save and validation. */
 @Component({
-  selector: 'fm-process-editor',
+  selector: 'fm-diagram-editor',
   imports: [
     FormsModule,
     RouterLink,
@@ -82,10 +82,10 @@ type ConflictChoice = 'overwrite' | 'newVersion' | 'discard';
     StencilIcon,
     UnsavedChangesDialog,
   ],
-  templateUrl: './process-editor.html',
-  styleUrl: './process-editor.scss',
+  templateUrl: './diagram-editor.html',
+  styleUrl: './diagram-editor.scss',
 })
-export class ProcessEditor implements HasUnsavedChanges {
+export class DiagramEditorPage implements HasUnsavedChanges {
   private readonly api = inject(EditorApi);
   private readonly router = inject(Router);
   private readonly translate = inject(TranslateService);
@@ -94,11 +94,17 @@ export class ProcessEditor implements HasUnsavedChanges {
 
   /** Route parameter. */
   readonly modelId = input.required<string>();
+  /** Route data: which kind of diagram this editor edits. */
+  readonly notation = input<NotationId>('bpmn');
+  protected readonly config = computed(() => NOTATIONS[this.notation()]);
 
   protected readonly loaded = rxResource({
     params: () => this.modelId(),
     stream: ({ params }) =>
-      forkJoin({ model: this.api.editorJson(params), stencils: this.api.stencilSet('editor') }),
+      forkJoin({
+        model: this.api.editorJson(params),
+        stencils: this.api.stencilSet(this.config().stencilSet),
+      }),
   });
 
   protected readonly meta = signal<EditorModel | null>(null);
@@ -174,7 +180,10 @@ export class ProcessEditor implements HasUnsavedChanges {
   constructor() {
     effect(() => {
       const value = this.loaded.value();
-      if (value) untracked(() => this.open(value.model, new StencilSet(value.stencils)));
+      if (value)
+        untracked(() =>
+          this.open(value.model, new StencilSet(value.stencils, this.config().profile)),
+        );
     });
   }
 
@@ -182,7 +191,7 @@ export class ProcessEditor implements HasUnsavedChanges {
     const doc = new DiagramDocument(
       stencils,
       model.modelId,
-      model.model.stencilset?.url || DEFAULT_STENCILSET_URL,
+      model.model.stencilset?.url || this.config().stencilsetUrl,
     );
     doc.load(model.model);
     this.meta.set(model);
@@ -355,7 +364,7 @@ export class ProcessEditor implements HasUnsavedChanges {
     this.saveVisible.set(false);
     this.messages.add({
       severity: 'success',
-      summary: 'Process model saved',
+      summary: `${this.config().typeLabel} saved`,
       life: 2500,
     });
     if (request.close) this.close();
@@ -394,7 +403,7 @@ export class ProcessEditor implements HasUnsavedChanges {
       });
       // The server writes these into the stored JSON; mirror them so the model stays clean.
       doc.markSavedWith((draft) => {
-        draft.properties['process_id'] = saved.key ?? request.key;
+        draft.properties[this.config().idProperty] = saved.key ?? request.key;
         draft.properties['name'] = saved.name ?? request.name;
         if (request.description) draft.properties['documentation'] = request.description;
       });
@@ -432,14 +441,14 @@ export class ProcessEditor implements HasUnsavedChanges {
     this.saveVisible.set(false);
     this.messages.add({
       severity: 'success',
-      summary: 'Process model saved',
+      summary: `${this.config().typeLabel} saved`,
       life: 2500,
     });
     if (c.request.close) this.close();
   }
 
   protected close() {
-    this.router.navigate(['/processes', this.modelId()]);
+    this.router.navigate([this.config().library, this.modelId()]);
   }
 
   // Unsaved changes

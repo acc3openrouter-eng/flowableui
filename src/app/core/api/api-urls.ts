@@ -80,6 +80,7 @@ export class ApiUrls {
 
   // Forms
   formModels = () => `${this.rest}/form-models`;
+  caseModels = () => `${this.rest}/case-models`;
   formModelValues = (query: string) => `${this.rest}/form-models/values?${query}`;
   formModel = (modelId: string) => `${this.rest}/form-models/${modelId}`;
   formModelHistory = (modelId: string, historyId: string) =>

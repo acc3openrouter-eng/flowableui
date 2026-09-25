@@ -122,6 +122,19 @@ export class EditorApi {
     return this.http.get<ResultList<ModelRepresentation>>(this.urls.decisionTableModels());
   }
 
+  /** Case models a case task can call (all but the one being edited). */
+  caseModels(excludeId: string): Observable<ResultList<ModelRepresentation>> {
+    return this.http.get<ResultList<ModelRepresentation>>(this.urls.caseModels(), {
+      params: { excludeId },
+    });
+  }
+
+  processModels(): Observable<ResultList<ModelRepresentation>> {
+    return this.http.get<ResultList<ModelRepresentation>>(this.urls.models(), {
+      params: { modelType: 0 },
+    });
+  }
+
   decisionServiceModels(): Observable<ResultList<ModelRepresentation>> {
     return this.http.get<ResultList<ModelRepresentation>>(this.urls.decisionServiceModels());
   }

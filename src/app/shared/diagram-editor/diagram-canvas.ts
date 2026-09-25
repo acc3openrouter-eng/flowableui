@@ -28,16 +28,6 @@ import { Stencil } from './stencil-set';
 import { StencilIcon } from './stencil-icon';
 import { DIAGRAM_FONT } from './stencil-view';
 
-/** Shapes offered by the quick menu next to a selected shape (same list as the original). */
-export const QUICK_MENU_STENCILS = [
-  'UserTask',
-  'EndNoneEvent',
-  'ExclusiveGateway',
-  'CatchTimerEvent',
-  'ThrowNoneEvent',
-  'TextAnnotation',
-];
-
 /** The stencil being dragged from the palette or the quick menu (HTML drag and drop). */
 export const paletteDrag = signal<{ stencil: string; from?: string } | null>(null);
 
@@ -77,7 +67,7 @@ export class DiagramCanvas {
   private readonly svg = viewChild.required<ElementRef<SVGSVGElement>>('svg');
 
   protected readonly font = DIAGRAM_FONT;
-  protected readonly quickStencils = QUICK_MENU_STENCILS;
+  protected readonly quickStencils = computed(() => this.doc().stencils.profile.quickMenu);
   private renderer: DiagramRenderer | null = null;
   protected readonly routes = signal(new Map<string, Point[]>());
 
@@ -122,10 +112,8 @@ export class DiagramCanvas {
       node,
       stencil,
       resizable: view.resizableH || view.resizableV,
-      quick:
-        stencil.rawRoles.includes('sequence_start') ||
-        stencil.id === 'TextAnnotation' ||
-        stencil.id === 'BoundaryCompensationEvent',
+      quick: this.doc().stencils.profile.hasQuickMenu(stencil),
+      deletable: this.doc().canDelete(node.id),
       morph: this.doc().stencils.morphOptions(stencil).length > 0,
     };
   });
@@ -224,7 +212,10 @@ export class DiagramCanvas {
       this.drag = {
         kind: 'move',
         start: p,
-        ids: doc.selection(),
+        // Sections of a decision service only move with the service.
+        ids: doc
+          .selection()
+          .filter((s) => !doc.stencils.profile.unmovable(doc.state().nodes[s]?.stencil ?? '')),
         moved: false,
         anchor: doc.selection().length === 1 ? (node ?? null) : null,
       };
@@ -558,7 +549,7 @@ export class DiagramCanvas {
     const edge = state.edges[id];
     const el = node ?? edge;
     if (!el) return;
-    const key = el.stencil === 'TextAnnotation' ? 'text' : 'name';
+    const key = doc.stencils.profile.labelKey(el.stencil);
     if (!(doc.stencilOf(el)?.properties ?? []).some((p) => p.key === key)) return;
     let box: Box;
     if (node) {

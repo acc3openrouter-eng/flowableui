@@ -64,6 +64,10 @@ export function renderStencilIcon(doc: DiagramDocument, stencilId: string): SVGS
       'viewBox',
       `${-pad - (side - pad * 2 - size.w) / 2} ${-pad - (side - pad * 2 - size.h) / 2} ${side} ${side}`,
     );
+    // Keep strokes visible when a large shape (a case plan model, a stage) is shrunk to icon size.
+    g.querySelectorAll('path, rect, circle, ellipse, polygon, polyline, line').forEach((el) =>
+      el.setAttribute('vector-effect', 'non-scaling-stroke'),
+    );
     svg.appendChild(g);
   }
   return svg;
