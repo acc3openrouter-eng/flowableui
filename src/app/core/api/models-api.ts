@@ -6,6 +6,7 @@ import {
   AppDefinitionRepresentation,
   DecisionTableRepresentation,
   FormRepresentation,
+  FormSaveRepresentation,
   ModelQuery,
   ModelRepresentation,
   NewModel,
@@ -113,6 +114,11 @@ export class ModelsApi {
         ? this.urls.appDefinitionHistory(modelId, historyId)
         : this.urls.appDefinition(modelId),
     );
+  }
+
+  /** Saves a form definition (`PUT /rest/form-models/{id}`). The server requires a PNG thumbnail. */
+  saveForm(modelId: string, body: FormSaveRepresentation): Observable<FormRepresentation> {
+    return this.http.put<FormRepresentation>(this.urls.formModel(modelId), body);
   }
 
   publishApp(

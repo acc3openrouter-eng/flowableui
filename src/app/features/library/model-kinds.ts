@@ -31,7 +31,7 @@ export interface ModelKind {
   /** Route of the visual editor (`/editor/:id`). */
   editorRoute: string;
   icon: string;
-  /** Whether the server renders a diagram thumbnail for this model type. */
+  /** Whether the server stores a thumbnail for this model type (the card falls back to the icon). */
   hasThumbnail: boolean;
   /** How the details page previews the model. */
   preview: ModelPreview;
@@ -88,7 +88,7 @@ export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
     route: '/forms',
     editorRoute: '/form-editor',
     icon: 'pi pi-file-edit',
-    hasThumbnail: false,
+    hasThumbnail: true,
     preview: 'form',
     exports: [],
   },
@@ -106,7 +106,7 @@ export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
     route: '/decision-tables',
     editorRoute: '/decision-table-editor',
     icon: 'pi pi-table',
-    hasThumbnail: false,
+    hasThumbnail: true,
     preview: 'decision-table',
     exports: [
       { label: 'DECISION-TABLE.ACTION.EXPORT', url: (u, id, h) => u.decisionTableExport(id, h) },

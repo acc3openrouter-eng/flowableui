@@ -1,0 +1,317 @@
+<header class="panel-header">
+  <div class="title">
+    <i [class]="palette()?.icon ?? 'pi pi-cog'"></i>
+    <div>
+      <h2>
+        @if (field().type === 'expression') {
+          {{ 'FORM-BUILDER.POPUP.EXPRESSION-TITLE' | translate }}
+        } @else {
+          {{ 'FORM-BUILDER.POPUP.EDIT-TITLE' | translate: { name: field().name } }}
+        }
+      </h2>
+      <span class="type">{{ 'FORM-BUILDER.PALLETTE.' + (palette()?.i18n ?? '') | translate }}</span>
+    </div>
+  </div>
+  <div class="header-actions">
+    <p-button
+      icon="pi pi-trash"
+      severity="danger"
+      [text]="true"
+      [rounded]="true"
+      ariaLabel="Remove field"
+      pTooltip="Remove field"
+      tooltipPosition="bottom"
+      (onClick)="removed.emit()"
+    />
+    <p-button
+      icon="pi pi-times"
+      severity="secondary"
+      [text]="true"
+      [rounded]="true"
+      [ariaLabel]="'GENERAL.ACTION.CLOSE' | translate"
+      (onClick)="closed.emit()"
+    />
+  </div>
+</header>
+
+@if (tabs().length > 1) {
+  <p-tabs [value]="tab()" (valueChange)="tab.set($any($event))" [scrollable]="true">
+    <p-tablist>
+      @for (t of tabs(); track t.id) {
+        <p-tab [value]="t.id">{{ t.label | translate }}</p-tab>
+      }
+    </p-tablist>
+  </p-tabs>
+}
+
+<div class="panel-body">
+  @switch (tab()) {
+    @case ('general') {
+      @if (caps().expression) {
+        <div class="field">
+          <label for="fp-expression">{{ 'FORM-BUILDER.COMPONENT.EXPRESSION' | translate }}</label>
+          <textarea
+            id="fp-expression"
+            pTextarea
+            rows="4"
+            [(ngModel)]="field().expression"
+            (ngModelChange)="touch()"
+          ></textarea>
+          <small>{{ 'FORM-BUILDER.MESSAGE.EXPRESSION-HELP' | translate }}</small>
+        </div>
+        <div class="field">
+          <label for="fp-size">{{ 'FORM-BUILDER.COMPONENT.SIZE' | translate }}</label>
+          <p-select
+            inputId="fp-size"
+            [options]="sizes"
+            [ngModel]="params['size'] ?? null"
+            (ngModelChange)="params['size'] = $event; touch()"
+            [showClear]="true"
+            placeholder="—"
+          />
+        </div>
+      } @else {
+        <div class="field">
+          <label for="fp-label">{{ 'FORM-BUILDER.COMPONENT.LABEL' | translate }}</label>
+          <input
+            id="fp-label"
+            pInputText
+            [(ngModel)]="field().name"
+            (ngModelChange)="touch()"
+            autocomplete="off"
+          />
+        </div>
+        <div class="field">
+          <label for="fp-id">{{ 'FORM-BUILDER.COMPONENT.ID' | translate }}</label>
+          @if (field().overrideId) {
+            <input
+              id="fp-id"
+              pInputText
+              [(ngModel)]="field().id"
+              (ngModelChange)="touch()"
+              autocomplete="off"
+            />
+          } @else {
+            <input id="fp-id" pInputText [value]="derivedId()" disabled />
+          }
+          <label class="check">
+            <p-checkbox
+              [binary]="true"
+              [ngModel]="!!field().overrideId"
+              (ngModelChange)="setOverrideId($event)"
+            />
+            {{ 'FORM-BUILDER.COMPONENT.OVERRIDEID' | translate }}
+          </label>
+        </div>
+        @if (caps().requiredAndReadOnly) {
+          <div class="checks">
+            <label class="check">
+              <p-checkbox
+                [binary]="true"
+                [(ngModel)]="field().required"
+                (ngModelChange)="touch()"
+              />
+              {{ 'FORM-BUILDER.COMPONENT.REQUIRED' | translate }}
+            </label>
+            <label class="check">
+              <p-checkbox
+                [binary]="true"
+                [(ngModel)]="field().readOnly"
+                (ngModelChange)="touch()"
+              />
+              {{ 'FORM-BUILDER.COMPONENT.READONLY' | translate }}
+            </label>
+          </div>
+        }
+        @if (caps().placeholder) {
+          <div class="field">
+            <label for="fp-placeholder">{{
+              'FORM-BUILDER.COMPONENT.PLACEHOLDER' | translate
+            }}</label>
+            <input
+              id="fp-placeholder"
+              pInputText
+              [(ngModel)]="field().placeholder"
+              (ngModelChange)="touch()"
+              autocomplete="off"
+            />
+          </div>
+        }
+      }
+    }
+    @case ('options') {
+      <div class="field">
+        <span class="label">{{ 'FORM-BUILDER.COMPONENT.OPTIONS' | translate }}</span>
+        <ul class="options">
+          @for (option of field().options ?? []; track $index; let i = $index) {
+            <li [class.empty-option]="isEmptyOption(i)">
+              <p-radiobutton
+                [name]="'default-' + field()._guid"
+                [value]="option.name"
+                [(ngModel)]="field().value"
+                (ngModelChange)="touch()"
+                [disabled]="optionsExpressionEnabled"
+                [ariaLabel]="'Default: ' + option.name"
+              />
+              <input
+                pInputText
+                [ngModel]="option.name"
+                (ngModelChange)="renameOption(i, $event)"
+                [disabled]="optionsExpressionEnabled"
+                [attr.aria-label]="'Option ' + (i + 1)"
+              />
+              @if (isEmptyOption(i)) {
+                <i
+                  class="pi pi-question-circle help"
+                  [pTooltip]="'FORM-BUILDER.COMPONENT.DROPDOWN-EMPTY-VALUE-HELP' | translate"
+                  tooltipPosition="left"
+                  tabindex="0"
+                ></i>
+              } @else {
+                <p-button
+                  icon="pi pi-times"
+                  severity="secondary"
+                  [text]="true"
+                  [rounded]="true"
+                  size="small"
+                  ariaLabel="Remove option"
+                  [disabled]="optionsExpressionEnabled || !canRemoveOption(i)"
+                  (onClick)="removeOption(i)"
+                />
+              }
+            </li>
+          }
+        </ul>
+        <div class="add-option">
+          <input
+            pInputText
+            [placeholder]="'FORM-BUILDER.COMPONENT.ADD-OPTION' | translate"
+            [(ngModel)]="newOption"
+            [disabled]="optionsExpressionEnabled"
+            (keydown.enter)="$event.preventDefault(); addOption()"
+            (blur)="addOption()"
+            aria-label="New option"
+          />
+        </div>
+      </div>
+      <label class="check">
+        <p-checkbox
+          [binary]="true"
+          [ngModel]="optionsExpressionEnabled"
+          (ngModelChange)="setOptionsExpressionEnabled($event)"
+        />
+        {{ 'FORM-BUILDER.COMPONENT.OPTIONS-EXPRESSION-ENABLED' | translate }}
+      </label>
+      <div class="field">
+        <label for="fp-options-expr">{{
+          'FORM-BUILDER.COMPONENT.OPTIONS-EXPRESSION' | translate
+        }}</label>
+        <textarea
+          id="fp-options-expr"
+          pTextarea
+          rows="3"
+          [(ngModel)]="field().optionsExpression"
+          (ngModelChange)="touch()"
+          [disabled]="!optionsExpressionEnabled"
+        ></textarea>
+        <small>{{ 'FORM-BUILDER.MESSAGE.OPTIONS-EXPRESSION-HELP' | translate }}</small>
+      </div>
+    }
+    @case ('upload') {
+      <label class="check">
+        <p-checkbox
+          [binary]="true"
+          [ngModel]="!!params['multiple']"
+          (ngModelChange)="params['multiple'] = $event; touch()"
+        />
+        {{ 'FORM-BUILDER.COMPONENT.UPLOAD-ALLOW-MULTIPLE' | translate }}
+      </label>
+    }
+    @case ('advanced') {
+      @if (caps().hyperlink) {
+        <div class="field">
+          <label for="fp-url">{{ 'FORM-BUILDER.COMPONENT.HYPERLINK-URL' | translate }}</label>
+          <input
+            id="fp-url"
+            pInputText
+            type="url"
+            [ngModel]="params['hyperlinkUrl'] ?? ''"
+            (ngModelChange)="params['hyperlinkUrl'] = $event; touch()"
+          />
+        </div>
+      }
+      @if (caps().lengths) {
+        <div class="row">
+          <div class="field">
+            <label for="fp-min">{{ 'FORM-BUILDER.COMPONENT.MIN-LENGTH' | translate }}</label>
+            <input
+              id="fp-min"
+              pInputText
+              inputmode="numeric"
+              maxlength="5"
+              [ngModel]="params['minLength'] ?? ''"
+              (ngModelChange)="params['minLength'] = digits($event); touch()"
+            />
+          </div>
+          <div class="field">
+            <label for="fp-max">{{ 'FORM-BUILDER.COMPONENT.MAX-LENGTH' | translate }}</label>
+            <input
+              id="fp-max"
+              pInputText
+              inputmode="numeric"
+              maxlength="5"
+              [ngModel]="params['maxLength'] ?? ''"
+              (ngModelChange)="params['maxLength'] = digits($event); touch()"
+            />
+          </div>
+        </div>
+      }
+      @if (caps().passwordUnmask) {
+        <label class="check">
+          <p-checkbox
+            [binary]="true"
+            [ngModel]="!!params['passwordunmask']"
+            (ngModelChange)="params['passwordunmask'] = $event; touch()"
+          />
+          {{ 'FORM-BUILDER.COMPONENT.PASSWORD-UNMASK-OPTION' | translate }}
+        </label>
+      }
+      @if (caps().patternAndMask) {
+        <div class="field">
+          <label for="fp-regex">{{ 'FORM-BUILDER.COMPONENT.REGEX-PATTERN' | translate }}</label>
+          <div class="affixed">
+            <span>/^</span>
+            <input
+              id="fp-regex"
+              pInputText
+              [ngModel]="params['regexPattern'] ?? ''"
+              (ngModelChange)="params['regexPattern'] = $event; touch()"
+            />
+            <span>$/</span>
+          </div>
+        </div>
+        <div class="field">
+          <label for="fp-mask">{{ 'FORM-BUILDER.COMPONENT.MASK.TITLE' | translate }}</label>
+          <input
+            id="fp-mask"
+            pInputText
+            [ngModel]="params['mask'] ?? ''"
+            (ngModelChange)="params['mask'] = $event; touch()"
+          />
+          <dl class="mask-examples">
+            <dt>{{ 'FORM-BUILDER.COMPONENT.MASK.EXAMPLES.NUMBER' | translate }}</dt>
+            <dd><code>9</code></dd>
+            <dt>{{ 'FORM-BUILDER.COMPONENT.MASK.EXAMPLES.LETTER' | translate }}</dt>
+            <dd><code>A</code></dd>
+            <dt>{{ 'FORM-BUILDER.COMPONENT.MASK.EXAMPLES.NUMBERORLETTER' | translate }}</dt>
+            <dd><code>*</code></dd>
+            <dt>{{ 'FORM-BUILDER.COMPONENT.MASK.EXAMPLES.OPTIONAL' | translate }}</dt>
+            <dd><code>?</code></dd>
+            <dt>{{ 'FORM-BUILDER.COMPONENT.MASK.EXAMPLES.PHONE' | translate }}</dt>
+            <dd><code>(99) 9999-9999</code></dd>
+          </dl>
+        </div>
+      }
+    }
+  }
+</div>
