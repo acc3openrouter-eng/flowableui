@@ -1,13 +1,13 @@
 import {
   Component,
-  effect,
-  untracked,
   computed,
+  effect,
   inject,
   input,
   model,
   output,
   signal,
+  untracked,
 } from '@angular/core';
 import { FormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -22,9 +22,14 @@ import { ModelsApi } from '../../core/api/models-api';
 import { MODEL_KEY_PATTERN, suggestKey } from './model-key';
 import { ModelKind } from './model-kinds';
 
-/** Create a new model, or duplicate `source` when it is set. */
+export type ModelFormMode = 'create' | 'duplicate' | 'edit';
+
+/** Only these model types have their own edit texts; the rest reuse the process ones, like the original app. */
+const HAS_EDIT_TEXTS = new Set(['PROCESS', 'CASE', 'FORM']);
+
+/** Name, key and description of a model: create a new one, duplicate `source`, or edit `source` in place. */
 @Component({
-  selector: 'fm-create-model-dialog',
+  selector: 'fm-model-form-dialog',
   imports: [
     FormsModule,
     TranslatePipe,
@@ -36,22 +41,17 @@ import { ModelKind } from './model-kinds';
   ],
   template: `
     <p-dialog
-      [header]="
-        kind().itemI18n + (source() ? '.POPUP.DUPLICATE-TITLE' : '.POPUP.CREATE-TITLE') | translate
-      "
+      [header]="texts().title | translate"
       [(visible)]="visible"
       [modal]="true"
       [draggable]="false"
       [style]="{ width: '34rem' }"
       [breakpoints]="{ '640px': '95vw' }"
     >
-      <p class="description">
-        {{
-          kind().itemI18n +
-            (source() ? '.POPUP.DUPLICATE-DESCRIPTION' : '.POPUP.CREATE-DESCRIPTION') | translate
-        }}
-      </p>
-      <form id="create-model-form" class="form" (ngSubmit)="submit()">
+      @if (texts().description; as description) {
+        <p class="description">{{ description | translate }}</p>
+      }
+      <form class="form" (ngSubmit)="submit()">
         <label class="field">
           <span>{{ kind().itemI18n + '.NAME' | translate }} *</span>
           <input
@@ -97,10 +97,7 @@ import { ModelKind } from './model-kinds';
           (onClick)="visible.set(false)"
         />
         <p-button
-          [label]="
-            (source() ? kind().itemI18n + '.ACTION.DUPLICATE-CONFIRM' : 'GENERAL.ACTION.SAVE')
-              | translate
-          "
+          [label]="texts().confirm | translate"
           [loading]="saving()"
           [disabled]="!canSave()"
           (onClick)="submit()"
@@ -135,14 +132,15 @@ import { ModelKind } from './model-kinds';
     }
   `,
 })
-export class CreateModelDialog {
+export class ModelFormDialog {
   private readonly api = inject(ModelsApi);
 
   readonly kind = input.required<ModelKind>();
-  /** Model to duplicate; null creates a blank model. */
+  readonly mode = input<ModelFormMode>('create');
+  /** The model to duplicate or edit. */
   readonly source = input<ModelRepresentation | null>(null);
   readonly visible = model(false);
-  readonly created = output<ModelRepresentation>();
+  readonly saved = output<ModelRepresentation>();
 
   protected readonly name = signal('');
   protected readonly key = signal('');
@@ -155,6 +153,32 @@ export class CreateModelDialog {
     () => !!this.name().trim() && this.keyValid() && !this.saving(),
   );
 
+  protected readonly texts = computed(() => {
+    const item = this.kind().itemI18n;
+    switch (this.mode()) {
+      case 'duplicate':
+        return {
+          title: `${item}.POPUP.DUPLICATE-TITLE`,
+          description: `${item}.POPUP.DUPLICATE-DESCRIPTION`,
+          confirm: 'PROCESS.ACTION.DUPLICATE-CONFIRM',
+        };
+      case 'edit': {
+        const texts = HAS_EDIT_TEXTS.has(item) ? item : 'PROCESS';
+        return {
+          title: `${texts}.POPUP.EDIT-TITLE`,
+          description: `${texts}.POPUP.EDIT-DESCRIPTION`,
+          confirm: 'GENERAL.ACTION.SAVE',
+        };
+      }
+      default:
+        return {
+          title: `${item}.POPUP.CREATE-TITLE`,
+          description: `${item}.POPUP.CREATE-DESCRIPTION`,
+          confirm: 'GENERAL.ACTION.SAVE',
+        };
+    }
+  });
+
   constructor() {
     // Reset as soon as the dialog opens (not on its show animation, which ends after fast typists start typing).
     effect(() => {
@@ -163,9 +187,9 @@ export class CreateModelDialog {
   }
 
   protected reset(): void {
-    const source = this.source();
-    this.name.set(source ? source.name : '');
-    this.key.set(source ? source.key : '');
+    const source = this.mode() === 'create' ? null : this.source();
+    this.name.set(source?.name ?? '');
+    this.key.set(source?.key ?? '');
     this.description = source?.description ?? '';
     this.keyEdited = !!source;
     this.error.set(null);
@@ -190,13 +214,23 @@ export class CreateModelDialog {
       modelType: this.kind().modelType,
     };
     const source = this.source();
+    const request =
+      this.mode() === 'edit' && source
+        ? this.api.update(source.id, {
+            name: body.name,
+            key: body.key,
+            description: body.description,
+          })
+        : this.mode() === 'duplicate' && source
+          ? this.api.duplicate(source.id, body)
+          : this.api.create(body);
     this.saving.set(true);
     this.error.set(null);
-    (source ? this.api.duplicate(source.id, body) : this.api.create(body)).subscribe({
-      next: (created) => {
+    request.subscribe({
+      next: (saved) => {
         this.saving.set(false);
         this.visible.set(false);
-        this.created.emit(created);
+        this.saved.emit(saved);
       },
       error: (err: unknown) => {
         this.saving.set(false);

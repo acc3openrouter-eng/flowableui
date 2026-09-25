@@ -68,8 +68,10 @@ export class ApiUrls {
     `${this.rest}/decision-table-models/values?${query}`;
   decisionTableModelHistory = (modelId: string, historyId: string) =>
     `${this.rest}/decision-table-models/${modelId}/history/${historyId}`;
-  decisionTableExport = (modelId: string) =>
-    `${this.rest}/decision-table-models/${modelId}/export?version=${Date.now()}`;
+  decisionTableExport = (modelId: string, historyId?: string) =>
+    historyId
+      ? `${this.rest}/decision-table-models/history/${historyId}/export?version=${Date.now()}`
+      : `${this.rest}/decision-table-models/${modelId}/export?version=${Date.now()}`;
 
   // Decision services
   decisionServiceModels = () => `${this.rest}/decision-service-models`;

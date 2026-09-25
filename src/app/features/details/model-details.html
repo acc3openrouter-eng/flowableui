@@ -1,0 +1,239 @@
+<a class="back" [routerLink]="kind().route">
+  <i class="pi pi-arrow-left"></i> {{ 'GENERAL.ACTION.RETURN-TO-LIST' | translate }}
+</a>
+
+@if (data.error()) {
+  <p-message severity="error" styleClass="mt-3"
+    >Could not load this model. It may have been deleted.</p-message
+  >
+} @else if (model(); as m) {
+  <header class="header">
+    <div class="title">
+      <div class="title-row">
+        <i [class]="kind().icon + ' kind-icon'"></i>
+        <h1>{{ m.name }}</h1>
+        <p-tag
+          [value]="'v' + (m.version ?? 1)"
+          [rounded]="true"
+          [severity]="isLatest() ? 'info' : 'warn'"
+        />
+        @if (!isLatest()) {
+          <p-tag value="History" [rounded]="true" severity="secondary" />
+        }
+      </div>
+      <div class="meta">
+        <code>{{ m.key }}</code>
+        @if (m.createdBy) {
+          <span
+            ><i class="pi pi-user"></i>
+            {{ kind().itemI18n + '.DETAILS.CREATED-BY' | translate: m }}</span
+          >
+        }
+        @if (m.lastUpdated) {
+          <span
+            ><i class="pi pi-pencil"></i> {{ m.lastUpdatedBy }} ·
+            {{ m.lastUpdated | date: 'medium' }}</span
+          >
+        }
+      </div>
+      @if (m.description) {
+        <p class="description">{{ m.description }}</p>
+      } @else if (isLatest()) {
+        <button type="button" class="link" (click)="openForm('edit')">
+          {{ 'PROCESS.DETAILS.NO-DESCRIPTION' | translate }} <i class="pi pi-pencil"></i>
+        </button>
+      }
+      @if (m.comment) {
+        <p class="comment"><i class="pi pi-comment"></i> {{ m.comment }}</p>
+      }
+    </div>
+
+    <div class="actions">
+      @if (isLatest()) {
+        <p-button
+          [label]="kind().itemI18n + '.ACTION.OPEN-IN-EDITOR' | translate"
+          icon="pi pi-pencil"
+          [routerLink]="[kind().editorRoute, m.id]"
+        />
+        @if (kind().id === 'apps') {
+          <p-button
+            [label]="'APP.ACTION.PUBLISH' | translate"
+            icon="pi pi-send"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="openPublish()"
+          />
+        }
+      } @else {
+        <p-button
+          [label]="kind().itemI18n + '.ACTION.USE-AS-NEW-VERSION' | translate"
+          icon="pi pi-replay"
+          (onClick)="openRestore()"
+        />
+      }
+      @if (exportItems().length === 1) {
+        <p-button
+          icon="pi pi-download"
+          severity="secondary"
+          [outlined]="true"
+          [pTooltip]="exportItems()[0].label"
+          tooltipPosition="bottom"
+          [ariaLabel]="exportItems()[0].label"
+          (onClick)="exportLink.click()"
+        />
+        <a #exportLink [href]="exportItems()[0].url" download hidden></a>
+      } @else if (exportItems().length > 1) {
+        <p-button
+          icon="pi pi-download"
+          severity="secondary"
+          [outlined]="true"
+          ariaLabel="Export"
+          (onClick)="exportMenu.toggle($event)"
+        />
+        <p-menu #exportMenu [model]="exportItems()" [popup]="true" appendTo="body" />
+      }
+      @if (isLatest()) {
+        <p-button
+          icon="pi pi-sliders-h"
+          severity="secondary"
+          [outlined]="true"
+          [pTooltip]="kind().itemI18n + '.ACTION.EDIT' | translate"
+          tooltipPosition="bottom"
+          [ariaLabel]="kind().itemI18n + '.ACTION.EDIT' | translate"
+          (onClick)="openForm('edit')"
+        />
+        <p-button
+          icon="pi pi-copy"
+          severity="secondary"
+          [outlined]="true"
+          [pTooltip]="kind().itemI18n + '.ACTION.DUPLICATE' | translate"
+          tooltipPosition="bottom"
+          [ariaLabel]="kind().itemI18n + '.ACTION.DUPLICATE' | translate"
+          (onClick)="openForm('duplicate')"
+        />
+        <p-button
+          icon="pi pi-trash"
+          severity="danger"
+          [outlined]="true"
+          [pTooltip]="kind().itemI18n + '.ACTION.DELETE' | translate"
+          tooltipPosition="bottom"
+          [ariaLabel]="kind().itemI18n + '.ACTION.DELETE' | translate"
+          (onClick)="confirmDelete()"
+        />
+      }
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="preview" [class.diagram]="kind().preview === 'diagram'">
+      @if (preview.isLoading()) {
+        <p-skeleton height="100%" />
+      } @else if (preview.error()) {
+        <p class="preview-error">The preview could not be loaded.</p>
+      } @else if (preview.value(); as p) {
+        @if (p.diagram) {
+          <fm-diagram-viewer [model]="p.diagram" />
+        } @else if (p.form) {
+          <fm-form-preview [form]="p.form" />
+        } @else if (p.table) {
+          <fm-decision-table-preview [table]="p.table" />
+        } @else if (p.app) {
+          <fm-app-preview [app]="p.app" />
+        }
+      }
+    </section>
+
+    <aside class="history">
+      <h2>{{ kind().itemI18n + '.DETAILS.HISTORY-TITLE' | translate }}</h2>
+      <ol>
+        @for (v of versions(); track v.id) {
+          <li [class.current]="isCurrent(v)">
+            <a [routerLink]="versionLink(v)">
+              <span class="dot"></span>
+              <span class="v">v{{ v.version }}</span>
+              <span class="when">{{ v.lastUpdated | date: 'medium' }}</span>
+              <span class="who">{{ v.lastUpdatedBy }}</span>
+              @if (v.comment) {
+                <span class="note">{{ v.comment }}</span>
+              }
+            </a>
+          </li>
+        }
+      </ol>
+    </aside>
+  </div>
+
+  <fm-model-form-dialog
+    [kind]="kind()"
+    [mode]="formMode()"
+    [source]="m"
+    [(visible)]="formVisible"
+    (saved)="onSaved($event)"
+  />
+
+  <p-dialog
+    [header]="restoreTexts() + '.POPUP.USE-AS-NEW-TITLE' | translate"
+    [(visible)]="restoreVisible"
+    [modal]="true"
+    [draggable]="false"
+    [style]="{ width: '32rem' }"
+    [breakpoints]="{ '640px': '95vw' }"
+  >
+    <p class="dialog-text">{{ restoreTexts() + '.POPUP.USE-AS-NEW-DESCRIPTION' | translate: m }}</p>
+    <label class="field">
+      <span>{{ 'PROCESS.VERSION-COMMENT' | translate }}</span>
+      <textarea pTextarea rows="3" [(ngModel)]="comment"></textarea>
+    </label>
+    @if (dialogError()) {
+      <p-message severity="error" [text]="dialogError()!" styleClass="mt-3" />
+    }
+    <ng-template #footer>
+      <p-button
+        [label]="'GENERAL.ACTION.CANCEL' | translate"
+        severity="secondary"
+        [text]="true"
+        (onClick)="restoreVisible.set(false)"
+      />
+      <p-button
+        [label]="kind().itemI18n + '.ACTION.USE-AS-NEW-VERSION' | translate"
+        [loading]="busy()"
+        (onClick)="restore()"
+      />
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    [header]="'APP.POPUP.PUBLISH-TITLE' | translate"
+    [(visible)]="publishVisible"
+    [modal]="true"
+    [draggable]="false"
+    [style]="{ width: '32rem' }"
+    [breakpoints]="{ '640px': '95vw' }"
+  >
+    <p class="dialog-text">{{ 'APP.POPUP.PUBLISH-DESCRIPTION' | translate: m }}</p>
+    <label class="field">
+      <span>{{ 'PROCESS.VERSION-COMMENT' | translate }}</span>
+      <textarea pTextarea rows="3" [(ngModel)]="comment"></textarea>
+    </label>
+    @if (dialogError()) {
+      <p-message severity="error" [text]="dialogError()!" styleClass="mt-3" />
+    }
+    <ng-template #footer>
+      <p-button
+        [label]="'GENERAL.ACTION.CANCEL' | translate"
+        severity="secondary"
+        [text]="true"
+        (onClick)="publishVisible.set(false)"
+      />
+      <p-button
+        [label]="'APP.ACTION.PUBLISH' | translate"
+        icon="pi pi-send"
+        [loading]="busy()"
+        (onClick)="publish()"
+      />
+    </ng-template>
+  </p-dialog>
+} @else {
+  <p-skeleton height="3rem" width="40%" styleClass="mt-3" />
+  <p-skeleton height="28rem" styleClass="mt-3" />
+}

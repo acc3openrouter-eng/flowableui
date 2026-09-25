@@ -11,7 +11,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the feature inventory and the phased plan.
 | Phase | Scope | State |
 | --- | --- | --- |
 | 1 | App shell, sign-in, REST client, translations, theme (light/dark) | done |
-| 2 | Model libraries (list, search, sort, create, duplicate, import), details pages | libraries done, details next |
+| 2 | Model libraries (list, search, sort, create, duplicate, import) and details pages (preview, history, edit, delete, export, restore, publish) | done |
 | 3 | Form builder | planned |
 | 4 | Decision table editor | planned |
 | 5 | App definition editor | planned |

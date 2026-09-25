@@ -123,11 +123,12 @@
   </div>
 }
 
-<fm-create-model-dialog
+<fm-model-form-dialog
   [kind]="kind()"
+  [mode]="duplicateSource() ? 'duplicate' : 'create'"
   [source]="duplicateSource()"
   [(visible)]="createVisible"
-  (created)="onCreated($event)"
+  (saved)="onCreated($event)"
 />
 @if (kind().importUrl) {
   <fm-import-model-dialog
