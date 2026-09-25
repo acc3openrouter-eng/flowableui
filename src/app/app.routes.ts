@@ -92,7 +92,13 @@ export const routes: Routes = [
         canDeactivate: [unsavedChangesGuard],
         title: 'App definition editor · Flowable Modeler',
       },
-      { path: 'editor/:modelId', ...soon('Process editor', '/processes') },
+      {
+        path: 'editor/:modelId',
+        loadComponent: () =>
+          import('./features/process-editor/process-editor').then((m) => m.ProcessEditor),
+        canDeactivate: [unsavedChangesGuard],
+        title: 'Process editor · Flowable Modeler',
+      },
       { path: 'case-editor/:modelId', ...soon('Case editor', '/casemodels') },
       {
         path: 'decision-service-editor/:modelId',

@@ -1,0 +1,186 @@
+<header class="head">
+  <div class="kind">
+    @if (multiple()) {
+      {{ doc().selectedElements().length }} elements selected
+    } @else {
+      {{ stencil()?.title ?? '' | translate }}
+    }
+  </div>
+  <h2 class="title" [title]="title()">{{ multiple() ? '' : title() }}</h2>
+  @if (!multiple()) {
+    <p-iconfield class="filter">
+      <p-inputicon styleClass="pi pi-search" />
+      <input
+        pInputText
+        type="search"
+        placeholder="Find a property"
+        aria-label="Find a property"
+        [ngModel]="filter()"
+        (ngModelChange)="filter.set($event)"
+      />
+    </p-iconfield>
+  }
+</header>
+
+@if (multiple()) {
+  <p class="note">Select a single element to edit its properties.</p>
+} @else {
+  <div class="rows">
+    @for (row of shown(); track row.track) {
+      @let id = 'prop-' + row.prop.key;
+      <div class="row" [class.wide]="row.editor.kind === 'text' || row.editor.kind === 'condition'">
+        @switch (row.editor.kind) {
+          @case ('boolean') {
+            <label
+              class="check"
+              [pTooltip]="row.prop.description | translate"
+              tooltipPosition="left"
+            >
+              <p-checkbox
+                [binary]="true"
+                [inputId]="id"
+                [ngModel]="isTrue(row.value)"
+                (ngModelChange)="set(row, $event)"
+              />
+              <span>{{ row.prop.title | translate }}</span>
+            </label>
+          }
+          @default {
+            <label
+              class="label"
+              [for]="id"
+              [pTooltip]="row.prop.description | translate"
+              tooltipPosition="left"
+              [showDelay]="400"
+              >{{ row.prop.title | translate }}</label
+            >
+            @switch (row.editor.kind) {
+              @case ('string') {
+                <input
+                  pInputText
+                  pSize="small"
+                  [id]="id"
+                  [value]="row.value ?? ''"
+                  (input)="edit(row, $any($event.target).value)"
+                  (blur)="commitString(row, $any($event.target).value)"
+                  (keydown.enter)="onEnter($event)"
+                />
+              }
+              @case ('text') {
+                <textarea
+                  pTextarea
+                  pSize="small"
+                  rows="2"
+                  [autoResize]="true"
+                  [id]="id"
+                  [value]="row.value ?? ''"
+                  (input)="edit(row, $any($event.target).value)"
+                  (blur)="commitText(row, $any($event.target).value)"
+                ></textarea>
+              }
+              @case ('condition') {
+                <textarea
+                  pTextarea
+                  pSize="small"
+                  rows="2"
+                  class="mono"
+                  placeholder="${ amount > 1000 }"
+                  [autoResize]="true"
+                  [id]="id"
+                  [value]="conditionText(row.value)"
+                  (blur)="commitCondition($any($event.target).value, row)"
+                ></textarea>
+              }
+              @case ('select') {
+                @if (row.editor.kind === 'select') {
+                  <p-select
+                    size="small"
+                    appendTo="body"
+                    [inputId]="id"
+                    [options]="row.editor.options"
+                    optionLabel="label"
+                    optionValue="value"
+                    [ngModel]="row.value ?? ''"
+                    (ngModelChange)="set(row, $event)"
+                  />
+                }
+              }
+              @case ('definition-ref') {
+                @if (row.editor.kind === 'definition-ref') {
+                  <p-select
+                    size="small"
+                    appendTo="body"
+                    [inputId]="id"
+                    [options]="definitionOptions(row.editor.definitions)"
+                    optionLabel="label"
+                    optionValue="value"
+                    placeholder="None"
+                    [ngModel]="row.value ?? ''"
+                    (ngModelChange)="set(row, $event)"
+                  />
+                }
+              }
+              @default {
+                <button
+                  type="button"
+                  class="complex"
+                  [id]="id"
+                  [class.empty]="row.summary.empty"
+                  (click)="open(row)"
+                >
+                  <span>{{ summaryText(row.summary) }}</span>
+                  <i class="pi pi-pencil" aria-hidden="true"></i>
+                </button>
+              }
+            }
+          }
+        }
+      </div>
+    } @empty {
+      <p class="note">No properties match "{{ filter() }}".</p>
+    }
+  </div>
+}
+
+@if (dialog(); as d) {
+  @switch (d.row.editor.kind) {
+    @case ('rows') {
+      @if (d.row.editor.kind === 'rows') {
+        <fm-rows-dialog
+          [(visible)]="dialogVisible"
+          [title]="d.row.prop.title"
+          [def]="d.row.editor.def"
+          [value]="d.row.value"
+          (save)="saveDialog($event)"
+        />
+      }
+    }
+    @case ('assignment') {
+      <fm-assignment-dialog
+        [(visible)]="dialogVisible"
+        [value]="d.row.value"
+        (save)="saveDialog($event)"
+      />
+    }
+    @case ('reference') {
+      @if (d.row.editor.kind === 'reference') {
+        <fm-reference-dialog
+          [(visible)]="dialogVisible"
+          [title]="d.row.editor.title"
+          [source]="d.row.editor.source"
+          [value]="d.row.value"
+          (save)="saveDialog($event)"
+        />
+      }
+    }
+    @case ('flow-order') {
+      <fm-flow-order-dialog
+        [(visible)]="dialogVisible"
+        [doc]="doc()"
+        [gatewayId]="d.elementId ?? ''"
+        [value]="d.row.value"
+        (save)="saveDialog($event)"
+      />
+    }
+  }
+}

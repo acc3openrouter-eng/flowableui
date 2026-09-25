@@ -1,0 +1,491 @@
+@if (loaded.error()) {
+  <p-message severity="error">
+    Could not open the process model. {{ loaded.error()?.message }}
+  </p-message>
+} @else if (!meta() || !doc()) {
+  <p-skeleton height="4rem" borderRadius="1rem" />
+  <div class="workspace loading">
+    <p-skeleton height="100%" borderRadius="1rem" />
+    <p-skeleton height="100%" borderRadius="1rem" />
+    <p-skeleton height="100%" borderRadius="1rem" />
+  </div>
+} @else {
+  @let m = meta()!;
+  @let d = doc()!;
+  <header class="editor-header">
+    <div class="identity">
+      <p-button
+        icon="pi pi-arrow-left"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        ariaLabel="Back to process model details"
+        [routerLink]="['/processes', m.modelId]"
+      />
+      <div>
+        <h1>
+          {{ m.name }}
+          @if (dirty()) {
+            <span class="unsaved" title="Unsaved changes" aria-label="Unsaved changes"></span>
+          }
+        </h1>
+        <p>
+          <span class="key">{{ m.key }}</span>
+          <span>Process model</span>
+        </p>
+      </div>
+    </div>
+    <div class="actions">
+      <p-button
+        [label]="'GENERAL.ACTION.CLOSE' | translate"
+        severity="secondary"
+        [text]="true"
+        (onClick)="close()"
+      />
+      <p-button
+        label="Validate"
+        icon="pi pi-check-circle"
+        severity="secondary"
+        [outlined]="true"
+        [pTooltip]="'TOOLBAR.ACTION.VALIDATE' | translate"
+        tooltipPosition="bottom"
+        (onClick)="validate()"
+      />
+      <p-button
+        [label]="'GENERAL.ACTION.SAVE' | translate"
+        icon="pi pi-save"
+        [pTooltip]="'TOOLBAR.ACTION.SAVE' | translate"
+        tooltipPosition="bottom"
+        (onClick)="openSave()"
+      />
+    </div>
+  </header>
+
+  <div class="toolbar" role="toolbar" aria-label="Diagram tools">
+    <p-button
+      icon="pi pi-palette"
+      severity="secondary"
+      [text]="true"
+      [class.active]="paletteOpen()"
+      [ariaLabel]="paletteOpen() ? 'Hide the palette' : 'Show the palette'"
+      [pTooltip]="paletteOpen() ? 'Hide the palette' : 'Show the palette'"
+      tooltipPosition="bottom"
+      (onClick)="paletteOpen.set(!paletteOpen())"
+    />
+    <span class="sep"></span>
+    <p-button
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Cut"
+      pTooltip="Cut (Ctrl+X)"
+      tooltipPosition="bottom"
+      [disabled]="!selectionCount()"
+      (onClick)="run(cut)"
+    >
+      <svg class="tool-svg" viewBox="0 0 24 24" aria-hidden="true">
+        <circle cx="6" cy="18" r="3" />
+        <circle cx="6" cy="6" r="3" />
+        <path d="M8.1 8.1 20 20M8.1 15.9 20 4" />
+      </svg>
+    </p-button>
+    <p-button
+      icon="pi pi-copy"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Copy"
+      pTooltip="Copy (Ctrl+C)"
+      tooltipPosition="bottom"
+      [disabled]="!selectionCount()"
+      (onClick)="run(copy)"
+    />
+    <p-button
+      icon="pi pi-clipboard"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Paste"
+      pTooltip="Paste (Ctrl+V)"
+      tooltipPosition="bottom"
+      [disabled]="!d.canPaste()"
+      (onClick)="run(paste)"
+    />
+    <p-button
+      icon="pi pi-trash"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Delete"
+      pTooltip="Delete (Del)"
+      tooltipPosition="bottom"
+      [disabled]="!selectionCount()"
+      (onClick)="run(remove)"
+    />
+    <span class="sep"></span>
+    <p-button
+      icon="pi pi-undo"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Undo"
+      pTooltip="Undo (Ctrl+Z)"
+      tooltipPosition="bottom"
+      [disabled]="!d.canUndo()"
+      (onClick)="run(undo)"
+    />
+    <p-button
+      icon="pi pi-undo"
+      styleClass="mirror"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Redo"
+      pTooltip="Redo (Ctrl+Y)"
+      tooltipPosition="bottom"
+      [disabled]="!d.canRedo()"
+      (onClick)="run(redo)"
+    />
+    <span class="sep"></span>
+    <p-button
+      icon="pi pi-arrows-v"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Align in a column"
+      [pTooltip]="'TOOLBAR.ACTION.ALIGNVERTICAL' | translate"
+      tooltipPosition="bottom"
+      [disabled]="selectedNodeCount() < 2"
+      (onClick)="run(alignVertical)"
+    />
+    <p-button
+      icon="pi pi-arrows-h"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Align in a row"
+      [pTooltip]="'TOOLBAR.ACTION.ALIGNHORIZONTAL' | translate"
+      tooltipPosition="bottom"
+      [disabled]="selectedNodeCount() < 2"
+      (onClick)="run(alignHorizontal)"
+    />
+    <p-button
+      icon="pi pi-expand"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Same size"
+      [pTooltip]="'TOOLBAR.ACTION.SAMESIZE' | translate"
+      tooltipPosition="bottom"
+      [disabled]="selectedNodeCount() < 2"
+      (onClick)="run(sameSize)"
+    />
+    <span class="sep"></span>
+    <p-button
+      icon="pi pi-search-minus"
+      severity="secondary"
+      [text]="true"
+      [ariaLabel]="'TOOLBAR.ACTION.ZOOMOUT' | translate"
+      [pTooltip]="'TOOLBAR.ACTION.ZOOMOUT' | translate"
+      tooltipPosition="bottom"
+      (onClick)="setZoom(zoom() * 0.9)"
+    />
+    <button
+      type="button"
+      class="zoom-level"
+      [pTooltip]="'TOOLBAR.ACTION.ZOOMACTUAL' | translate"
+      tooltipPosition="bottom"
+      [attr.aria-label]="'TOOLBAR.ACTION.ZOOMACTUAL' | translate"
+      (click)="setZoom(1)"
+    >
+      {{ (zoom() * 100).toFixed(0) }}%
+    </button>
+    <p-button
+      icon="pi pi-search-plus"
+      severity="secondary"
+      [text]="true"
+      [ariaLabel]="'TOOLBAR.ACTION.ZOOMIN' | translate"
+      [pTooltip]="'TOOLBAR.ACTION.ZOOMIN' | translate"
+      tooltipPosition="bottom"
+      (onClick)="setZoom(zoom() * 1.1)"
+    />
+    <p-button
+      icon="pi pi-arrow-up-right-and-arrow-down-left-from-center"
+      severity="secondary"
+      [text]="true"
+      [ariaLabel]="'TOOLBAR.ACTION.ZOOMFIT' | translate"
+      [pTooltip]="'TOOLBAR.ACTION.ZOOMFIT' | translate"
+      tooltipPosition="bottom"
+      (onClick)="zoomFit()"
+    />
+    <span class="grow"></span>
+    <p-button
+      icon="pi pi-question-circle"
+      severity="secondary"
+      [text]="true"
+      ariaLabel="Editing tips"
+      (onClick)="tips.toggle($event)"
+    />
+    <p-button
+      icon="pi pi-sliders-h"
+      severity="secondary"
+      [text]="true"
+      [ariaLabel]="propertiesOpen() ? 'Hide the properties' : 'Show the properties'"
+      [pTooltip]="propertiesOpen() ? 'Hide the properties' : 'Show the properties'"
+      tooltipPosition="bottom"
+      (onClick)="propertiesOpen.set(!propertiesOpen())"
+    />
+  </div>
+
+  <div
+    class="workspace"
+    [class.no-palette]="!paletteOpen()"
+    [class.no-properties]="!propertiesOpen()"
+  >
+    @if (paletteOpen()) {
+      <aside class="palette" aria-label="Palette">
+        <p-iconfield class="palette-search">
+          <p-inputicon styleClass="pi pi-search" />
+          <input
+            pInputText
+            pSize="small"
+            type="search"
+            placeholder="Find an element"
+            aria-label="Find an element"
+            [ngModel]="paletteFilter()"
+            (ngModelChange)="paletteFilter.set($event)"
+          />
+        </p-iconfield>
+        <div class="groups">
+          @for (g of paletteGroups(); track g.title) {
+            @let open = !!paletteFilter().trim() || expanded().has(g.title);
+            <section class="group">
+              <button
+                type="button"
+                class="group-head"
+                [attr.aria-expanded]="open"
+                (click)="toggleGroup(g.title)"
+              >
+                <i class="pi" [class.pi-chevron-down]="open" [class.pi-chevron-right]="!open"></i>
+                {{ g.title | translate }}
+                <span class="count">{{ g.items.length }}</span>
+              </button>
+              @if (open) {
+                <ul>
+                  @for (s of g.items; track s.id) {
+                    <li>
+                      <button
+                        type="button"
+                        class="stencil"
+                        draggable="true"
+                        [attr.data-stencil]="s.id"
+                        [pTooltip]="s.description | translate"
+                        tooltipPosition="right"
+                        [showDelay]="600"
+                        (dragstart)="paletteDragStart($event, s)"
+                        (dragend)="paletteDragEnd()"
+                        (click)="addFromPalette(s)"
+                      >
+                        <svg class="icon" [fmStencilIcon]="s.id" [doc]="d"></svg>
+                        <span>{{ s.title | translate }}</span>
+                      </button>
+                    </li>
+                  }
+                </ul>
+              }
+            </section>
+          } @empty {
+            <p class="empty">No elements match "{{ paletteFilter() }}".</p>
+          }
+        </div>
+      </aside>
+    }
+
+    <fm-diagram-canvas
+      class="canvas"
+      [doc]="d"
+      [zoom]="zoom()"
+      (zoomChange)="setZoom($event)"
+      (morphRequested)="openMorph($event)"
+    />
+
+    @if (propertiesOpen()) {
+      <aside class="properties" aria-label="Properties">
+        <fm-property-panel [doc]="d" [modelName]="m.name" />
+      </aside>
+    }
+  </div>
+
+  <p-popover #morphPopover appendTo="body">
+    <div class="morph">
+      <div class="morph-title">{{ 'BUTTON.ACTION.MORPH.TOOLTIP' | translate }}</div>
+      <ul>
+        @for (s of morph()?.options ?? []; track s.id) {
+          <li>
+            <button type="button" (click)="applyMorph(s)">
+              <svg class="icon" [fmStencilIcon]="s.id" [doc]="d"></svg>
+              {{ s.title | translate }}
+            </button>
+          </li>
+        }
+      </ul>
+    </div>
+  </p-popover>
+
+  <p-popover #tips appendTo="body">
+    <div class="tips">
+      <strong>Editing tips</strong>
+      <ul>
+        <li>Drag elements from the palette, or click one to add it in the middle of the view.</li>
+        <li>
+          Select a shape and use its quick menu to add and connect the next step; drag the arrow to
+          connect to an existing shape.
+        </li>
+        <li>
+          Drag the middle of a flow segment to add a bend point; double-click a bend point to remove
+          it.
+        </li>
+        <li>
+          Double-click or press F2 to rename. Arrow keys move the selection (hold Ctrl for small
+          steps).
+        </li>
+        <li>
+          Ctrl+Z undo, Ctrl+Y redo, Ctrl+C/X/V copy, cut and paste, Ctrl+A select all, Ctrl+S save.
+        </li>
+        <li>Ctrl+scroll zooms; hold Alt or the middle mouse button and drag to pan.</li>
+      </ul>
+    </div>
+  </p-popover>
+
+  <fm-model-save-dialog
+    [labels]="saveLabels"
+    [(visible)]="saveVisible"
+    [initial]="saveInitial()"
+    [saving]="saving()"
+    [error]="conflict() ? null : saveError()"
+    (save)="onSave($event)"
+  />
+
+  <p-dialog
+    header="Someone else saved this model"
+    [visible]="!!conflict()"
+    (visibleChange)="!$event && conflict.set(null)"
+    [modal]="true"
+    [draggable]="false"
+    [closable]="!saving()"
+    [style]="{ width: '32rem' }"
+    [breakpoints]="{ '640px': '95vw' }"
+  >
+    @if (conflict(); as c) {
+      <p class="conflict-text">
+        {{ 'MODEL.CONFLICT.WRITE' | translate: { userFullName: c.user } }}.
+        {{ 'MODEL.CONFLICT.WRITE.OPTIONS' | translate }}
+      </p>
+      <div class="choices" role="radiogroup">
+        @for (
+          o of [
+            {
+              value: 'overwrite',
+              label: 'MODEL.CONFLICT.WRITE.OPTION.OVERWRITE',
+              icon: 'pi pi-save',
+            },
+            {
+              value: 'newVersion',
+              label: 'MODEL.CONFLICT.WRITE.OPTION.NEWVERSION',
+              icon: 'pi pi-plus',
+            },
+            {
+              value: 'discard',
+              label: 'MODEL.CONFLICT.WRITE.OPTION.DISCARDCHANGES',
+              icon: 'pi pi-replay',
+            },
+          ];
+          track o.value
+        ) {
+          <button
+            type="button"
+            role="radio"
+            class="choice"
+            [class.selected]="conflictChoice() === o.value"
+            [attr.aria-checked]="conflictChoice() === o.value"
+            (click)="conflictChoice.set($any(o.value))"
+          >
+            <i [class]="o.icon"></i>
+            {{ o.label | translate }}
+          </button>
+        }
+      </div>
+      @if (saveError()) {
+        <p-message severity="error">{{ saveError() }}</p-message>
+      }
+    }
+    <ng-template #footer>
+      <p-button
+        [label]="'ACTION.CANCEL' | translate"
+        severity="secondary"
+        [text]="true"
+        [disabled]="saving()"
+        (onClick)="conflict.set(null)"
+      />
+      <p-button
+        [label]="'ACTION.OK' | translate"
+        [loading]="saving()"
+        [disabled]="!conflictChoice()"
+        (onClick)="resolveConflict()"
+      />
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog
+    [header]="'MODEL.VALIDATE.TITLE' | translate"
+    [(visible)]="validateVisible"
+    [modal]="true"
+    [draggable]="false"
+    [style]="{ width: '46rem' }"
+    [breakpoints]="{ '800px': '95vw' }"
+  >
+    @if (validating()) {
+      <div class="validating">
+        <p-skeleton height="2.5rem" />
+        <p-skeleton height="2.5rem" />
+        <p-skeleton height="2.5rem" />
+      </div>
+    } @else if (validationError()) {
+      <p-message severity="error">{{ validationError() }}</p-message>
+    } @else if (validation(); as problems) {
+      @if (!problems.length) {
+        <p-message severity="success" icon="pi pi-check-circle">No errors detected.</p-message>
+      } @else {
+        <p class="problem-count">
+          {{ problems.length }} {{ problems.length === 1 ? 'problem' : 'problems' }} found. Select
+          one to show the element.
+        </p>
+        <ul class="problems">
+          @for (p of problems; track $index) {
+            <li>
+              <button type="button" [disabled]="!p.activityId" (click)="goTo(p)">
+                <span class="severity" [class.warning]="p.warning">
+                  <i
+                    class="pi"
+                    [class.pi-exclamation-triangle]="p.warning"
+                    [class.pi-times-circle]="!p.warning"
+                  ></i>
+                  {{ p.warning ? 'Warning' : 'Critical' }}
+                </span>
+                <span class="problem">
+                  <strong>{{ p.activityName || p.activityId || 'Process' }}</strong>
+                  <span>{{ p.defaultDescription }}</span>
+                </span>
+              </button>
+            </li>
+          }
+        </ul>
+      }
+    }
+    <ng-template #footer>
+      <p-button
+        [label]="'GENERAL.ACTION.CLOSE' | translate"
+        severity="secondary"
+        (onClick)="validateVisible.set(false)"
+      />
+    </ng-template>
+  </p-dialog>
+
+  <fm-unsaved-changes-dialog
+    [confirmation]="leave"
+    [saving]="saving()"
+    [error]="saveError()"
+    (choose)="resolveLeave($event)"
+  />
+}
