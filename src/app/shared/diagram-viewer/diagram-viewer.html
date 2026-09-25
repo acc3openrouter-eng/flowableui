@@ -1,0 +1,373 @@
+<div class="viewer">
+  <svg
+    #svg
+    [attr.viewBox]="viewBox()"
+    preserveAspectRatio="xMidYMid meet"
+    role="img"
+    aria-label="Model diagram"
+    (wheel)="onWheel($event)"
+    (pointerdown)="onPointerDown($event)"
+    (pointermove)="onPointerMove($event)"
+    (pointerup)="onPointerUp()"
+    (pointercancel)="onPointerUp()"
+    (dblclick)="fit()"
+  >
+    <defs>
+      <marker
+        id="fm-arrow"
+        viewBox="0 0 10 10"
+        refX="9.5"
+        refY="5"
+        markerWidth="8"
+        markerHeight="8"
+        orient="auto-start-reverse"
+      >
+        <path d="M0,0 L10,5 L0,10 z" class="arrowhead" />
+      </marker>
+    </defs>
+
+    @for (pool of pools(); track pool.id) {
+      <g class="pool">
+        <rect
+          [attr.x]="pool.x"
+          [attr.y]="pool.y"
+          [attr.width]="pool.width"
+          [attr.height]="pool.height"
+        />
+        <line
+          [attr.x1]="pool.x + 30"
+          [attr.y1]="pool.y"
+          [attr.x2]="pool.x + 30"
+          [attr.y2]="pool.y + pool.height"
+        />
+        @if (pool.name) {
+          <text
+            class="label"
+            text-anchor="middle"
+            [attr.transform]="
+              'translate(' + (pool.x + 18) + ',' + (pool.y + pool.height / 2) + ') rotate(-90)'
+            "
+          >
+            {{ pool.name }}
+          </text>
+        }
+        @for (lane of pool.lanes ?? []; track lane.id) {
+          <rect
+            class="lane"
+            [attr.x]="lane.x"
+            [attr.y]="lane.y"
+            [attr.width]="lane.width"
+            [attr.height]="lane.height"
+          />
+          @if (lane.name) {
+            <text
+              class="label"
+              text-anchor="middle"
+              [attr.transform]="
+                'translate(' + (lane.x + 16) + ',' + (lane.y + lane.height / 2) + ') rotate(-90)'
+              "
+            >
+              {{ lane.name }}
+            </text>
+          }
+        }
+      </g>
+    }
+
+    @for (s of shapes(); track s.el.id) {
+      <g [attr.class]="'shape ' + s.kind + ' type-' + s.el.type">
+        <title>{{ s.el.name || s.el.type }}</title>
+        @switch (s.kind) {
+          @case ('event') {
+            <circle
+              [attr.cx]="s.el.x + s.el.width / 2"
+              [attr.cy]="s.el.y + s.el.height / 2"
+              [attr.r]="s.el.width / 2"
+              [class.end]="isEnd(s.el)"
+              [class.dashed]="nonInterrupting(s.el)"
+            />
+            @if (isIntermediate(s.el)) {
+              <circle
+                class="inner"
+                [class.dashed]="nonInterrupting(s.el)"
+                [attr.cx]="s.el.x + s.el.width / 2"
+                [attr.cy]="s.el.y + s.el.height / 2"
+                [attr.r]="s.el.width / 2 - 3"
+              />
+            }
+            @if (glyph(s.el)) {
+              <text
+                class="glyph"
+                text-anchor="middle"
+                dominant-baseline="central"
+                [attr.x]="s.el.x + s.el.width / 2"
+                [attr.y]="s.el.y + s.el.height / 2"
+              >
+                {{ glyph(s.el) }}
+              </text>
+            }
+            @for (line of s.lines; track $index) {
+              <text
+                class="label small"
+                text-anchor="middle"
+                [attr.x]="s.el.x + s.el.width / 2"
+                [attr.y]="s.el.y + s.el.height + 14 + $index * 14"
+              >
+                {{ line }}
+              </text>
+            }
+          }
+          @case ('gateway') {
+            <polygon [attr.points]="diamond(s.el)" />
+            @switch (gatewayMarker(s.el.type)) {
+              @case ('x') {
+                <path
+                  class="marker"
+                  [attr.d]="
+                    'M' +
+                    (s.el.x + s.el.width * 0.33) +
+                    ',' +
+                    (s.el.y + s.el.height * 0.33) +
+                    ' L' +
+                    (s.el.x + s.el.width * 0.67) +
+                    ',' +
+                    (s.el.y + s.el.height * 0.67) +
+                    ' M' +
+                    (s.el.x + s.el.width * 0.67) +
+                    ',' +
+                    (s.el.y + s.el.height * 0.33) +
+                    ' L' +
+                    (s.el.x + s.el.width * 0.33) +
+                    ',' +
+                    (s.el.y + s.el.height * 0.67)
+                  "
+                />
+              }
+              @case ('+') {
+                <path
+                  class="marker"
+                  [attr.d]="
+                    'M' +
+                    (s.el.x + s.el.width / 2) +
+                    ',' +
+                    (s.el.y + s.el.height * 0.28) +
+                    ' V' +
+                    (s.el.y + s.el.height * 0.72) +
+                    ' M' +
+                    (s.el.x + s.el.width * 0.28) +
+                    ',' +
+                    (s.el.y + s.el.height / 2) +
+                    ' H' +
+                    (s.el.x + s.el.width * 0.72)
+                  "
+                />
+              }
+              @case ('o') {
+                <circle
+                  class="marker"
+                  [attr.cx]="s.el.x + s.el.width / 2"
+                  [attr.cy]="s.el.y + s.el.height / 2"
+                  [attr.r]="s.el.width * 0.2"
+                />
+              }
+              @case ('e') {
+                <circle
+                  class="thin"
+                  [attr.cx]="s.el.x + s.el.width / 2"
+                  [attr.cy]="s.el.y + s.el.height / 2"
+                  [attr.r]="s.el.width * 0.24"
+                />
+              }
+            }
+            @for (line of s.lines; track $index) {
+              <text
+                class="label small"
+                text-anchor="middle"
+                [attr.x]="s.el.x + s.el.width / 2"
+                [attr.y]="s.el.y + s.el.height + 14 + $index * 14"
+              >
+                {{ line }}
+              </text>
+            }
+          }
+          @case ('criterion') {
+            <polygon [attr.points]="diamond(s.el)" [class.filled]="s.el.type === 'ExitCriterion'" />
+          }
+          @case ('milestone') {
+            <rect
+              [attr.x]="s.el.x"
+              [attr.y]="s.el.y"
+              [attr.width]="s.el.width"
+              [attr.height]="s.el.height"
+              [attr.rx]="s.el.height / 2"
+            />
+            @for (line of s.lines; track $index) {
+              <text
+                class="label"
+                text-anchor="middle"
+                [attr.x]="s.el.x + s.el.width / 2"
+                [attr.y]="s.el.y + s.el.height / 2 + 4 + ($index - (s.lines.length - 1) / 2) * 14"
+              >
+                {{ line }}
+              </text>
+            }
+          }
+          @case ('annotation') {
+            <path
+              class="bracket"
+              [attr.d]="
+                'M' +
+                (s.el.x + 12) +
+                ',' +
+                s.el.y +
+                ' H' +
+                s.el.x +
+                ' V' +
+                (s.el.y + s.el.height) +
+                ' H' +
+                (s.el.x + 12)
+              "
+            />
+            @for (line of s.lines; track $index) {
+              <text class="label" [attr.x]="s.el.x + 6" [attr.y]="s.el.y + 16 + $index * 14">
+                {{ line }}
+              </text>
+            }
+          }
+          @case ('container') {
+            <rect
+              [attr.x]="s.el.x"
+              [attr.y]="s.el.y"
+              [attr.width]="s.el.width"
+              [attr.height]="s.el.height"
+              [attr.rx]="s.el.type === 'PlanModel' ? 4 : 10"
+              [class.dashed]="s.el.type === 'EventSubProcess'"
+            />
+            @if (s.el.type === 'Transaction') {
+              <rect
+                class="thin"
+                [attr.x]="s.el.x + 4"
+                [attr.y]="s.el.y + 4"
+                [attr.width]="s.el.width - 8"
+                [attr.height]="s.el.height - 8"
+                rx="7"
+              />
+            }
+            @if (s.el.name) {
+              <text class="label title" [attr.x]="s.el.x + 10" [attr.y]="s.el.y + 18">
+                {{ s.el.name }}
+              </text>
+            }
+          }
+          @default {
+            <rect
+              [attr.x]="s.el.x"
+              [attr.y]="s.el.y"
+              [attr.width]="s.el.width"
+              [attr.height]="s.el.height"
+              [attr.rx]="s.kind === 'decision' ? 2 : 8"
+              [class.thick]="
+                s.el.type === 'CallActivity' ||
+                s.el.type === 'CaseTask' ||
+                s.el.type === 'ProcessTask'
+              "
+            />
+            @if (s.icon) {
+              <g
+                class="icon"
+                [attr.transform]="'translate(' + (s.el.x + 6) + ',' + (s.el.y + 6) + ')'"
+              >
+                @switch (s.icon) {
+                  @case ('user') {
+                    <circle cx="7" cy="4.5" r="3.5" />
+                    <path d="M1 14 C1 9, 13 9, 13 14 Z" />
+                  }
+                  @case ('gear') {
+                    <circle cx="7" cy="7" r="5.5" />
+                    <circle cx="7" cy="7" r="2" />
+                  }
+                  @case ('mail') {
+                    <rect x="1" y="3" width="13" height="9" rx="1" />
+                    <path d="M1 3 L7.5 8 L14 3" />
+                  }
+                  @case ('table') {
+                    <rect x="1" y="2" width="13" height="10" />
+                    <path d="M1 5 H14 M5 5 V12" />
+                  }
+                  @case ('script') {
+                    <path d="M3 1 H13 C11 4, 13 8, 11 13 H1 C3 9, 1 5, 3 1 Z M5 5 H10 M5 8 H10" />
+                  }
+                  @case ('http') {
+                    <circle cx="7" cy="7" r="6" />
+                    <path d="M1 7 H13 M7 1 C3 4, 3 10, 7 13 M7 1 C11 4, 11 10, 7 13" />
+                  }
+                  @case ('hand') {
+                    <path d="M2 8 V4 M5 7 V2 M8 7 V2 M11 7 V3 M2 8 C2 13, 11 13, 12 9 L13 6" />
+                  }
+                  @case ('case') {
+                    <path d="M1 4 H5 L6.5 2 H13 V12 H1 Z" />
+                  }
+                  @case ('process') {
+                    <path d="M1 4 H9 L13 7 L9 10 H1 L4 7 Z" />
+                  }
+                }
+              </g>
+            }
+            @for (line of s.lines; track $index) {
+              <text
+                class="label"
+                text-anchor="middle"
+                [attr.x]="s.el.x + s.el.width / 2"
+                [attr.y]="s.el.y + s.el.height / 2 + 4 + ($index - (s.lines.length - 1) / 2) * 14"
+              >
+                {{ line }}
+              </text>
+            }
+          }
+        }
+      </g>
+    }
+
+    @for (e of edges(); track e.flow.id) {
+      <g class="edge">
+        <polyline
+          [attr.points]="e.points"
+          [class.dashed]="e.dashed"
+          [attr.marker-end]="e.arrow ? 'url(#fm-arrow)' : null"
+        />
+        @if (e.label) {
+          <text class="label small" text-anchor="middle" [attr.x]="e.label.x" [attr.y]="e.label.y">
+            {{ e.flow.name }}
+          </text>
+        }
+      </g>
+    }
+  </svg>
+
+  <div class="controls">
+    <p-button
+      icon="pi pi-search-plus"
+      [text]="true"
+      [rounded]="true"
+      severity="secondary"
+      ariaLabel="Zoom in"
+      (onClick)="zoomBy(1.25)"
+    />
+    <p-button
+      icon="pi pi-search-minus"
+      [text]="true"
+      [rounded]="true"
+      severity="secondary"
+      ariaLabel="Zoom out"
+      (onClick)="zoomBy(0.8)"
+    />
+    <p-button
+      icon="pi pi-expand"
+      [text]="true"
+      [rounded]="true"
+      severity="secondary"
+      ariaLabel="Fit to view"
+      (onClick)="fit()"
+    />
+  </div>
+</div>

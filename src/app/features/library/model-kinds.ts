@@ -1,6 +1,13 @@
 import { ModelType } from '../../core/api/api.types';
 import { ApiUrls } from '../../core/api/api-urls';
 
+export interface ModelExport {
+  label: string;
+  url: (urls: ApiUrls, modelId: string, historyId?: string) => string;
+}
+
+export type ModelPreview = 'diagram' | 'form' | 'decision-table' | 'app';
+
 /** Everything the generic library, create and import screens need to know about one model type. */
 export interface ModelKind {
   id: 'processes' | 'casemodels' | 'forms' | 'decision-tables' | 'decision-services' | 'apps';
@@ -26,6 +33,9 @@ export interface ModelKind {
   icon: string;
   /** Whether the server renders a diagram thumbnail for this model type. */
   hasThumbnail: boolean;
+  /** How the details page previews the model. */
+  preview: ModelPreview;
+  exports: ModelExport[];
 }
 
 export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
@@ -44,6 +54,10 @@ export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
     editorRoute: '/editor',
     icon: 'pi pi-sitemap',
     hasThumbnail: true,
+    preview: 'diagram',
+    exports: [
+      { label: 'PROCESS.ACTION.EXPORT_BPMN20', url: (u, id, h) => u.modelBpmnExport(id, h) },
+    ],
   },
   casemodels: {
     id: 'casemodels',
@@ -60,6 +74,8 @@ export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
     editorRoute: '/case-editor',
     icon: 'pi pi-briefcase',
     hasThumbnail: true,
+    preview: 'diagram',
+    exports: [{ label: 'CASE.ACTION.EXPORT_CMMN', url: (u, id, h) => u.cmmnExport(id, h) }],
   },
   forms: {
     id: 'forms',
@@ -73,6 +89,8 @@ export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
     editorRoute: '/form-editor',
     icon: 'pi pi-file-edit',
     hasThumbnail: false,
+    preview: 'form',
+    exports: [],
   },
   'decision-tables': {
     id: 'decision-tables',
@@ -89,6 +107,10 @@ export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
     editorRoute: '/decision-table-editor',
     icon: 'pi pi-table',
     hasThumbnail: false,
+    preview: 'decision-table',
+    exports: [
+      { label: 'DECISION-TABLE.ACTION.EXPORT', url: (u, id, h) => u.decisionTableExport(id, h) },
+    ],
   },
   'decision-services': {
     id: 'decision-services',
@@ -105,6 +127,8 @@ export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
     editorRoute: '/decision-service-editor',
     icon: 'pi pi-share-alt',
     hasThumbnail: true,
+    preview: 'diagram',
+    exports: [{ label: 'DECISION-SERVICE.ACTION.EXPORT', url: (u, id, h) => u.dmnExport(id, h) }],
   },
   apps: {
     id: 'apps',
@@ -122,6 +146,11 @@ export const MODEL_KINDS: Record<ModelKind['id'], ModelKind> = {
     editorRoute: '/app-editor',
     icon: 'pi pi-th-large',
     hasThumbnail: false,
+    preview: 'app',
+    exports: [
+      { label: 'APP.ACTION.EXPORT-ZIP', url: (u, id) => u.appDefinitionExport(id) },
+      { label: 'APP.ACTION.EXPORT-BAR', url: (u, id) => u.appDefinitionBarExport(id) },
+    ],
   },
 };
 

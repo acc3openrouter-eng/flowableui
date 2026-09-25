@@ -14,7 +14,7 @@ import { catchError, debounceTime, distinctUntilChanged, of, switchMap, tap } fr
 import { ModelRepresentation, ModelSort, ResultList } from '../../core/api/api.types';
 import { errorMessage } from '../../core/api/error-message';
 import { ModelsApi } from '../../core/api/models-api';
-import { CreateModelDialog } from './create-model-dialog';
+import { ModelFormDialog } from './model-form-dialog';
 import { ImportModelDialog } from './import-model-dialog';
 import { ModelCard } from './model-card';
 import { MODEL_KINDS, ModelKind } from './model-kinds';
@@ -45,7 +45,7 @@ const savedState = new Map<ModelKind['id'], { sort: ModelSort; text: string }>()
     SelectModule,
     SkeletonModule,
     ModelCard,
-    CreateModelDialog,
+    ModelFormDialog,
     ImportModelDialog,
   ],
   templateUrl: './model-library.html',

@@ -70,3 +70,78 @@ export interface FlowableError {
   messageKey?: string;
   customData?: Record<string, unknown>;
 }
+
+/** A form field as stored in `formDefinition.fields`; containers hold their children per column in `fields`. */
+export interface FormField {
+  id: string;
+  name?: string;
+  type: string;
+  required?: boolean;
+  readOnly?: boolean;
+  placeholder?: string | null;
+  options?: { id?: string; name: string }[];
+  fields?: Record<string, FormField[]>;
+  params?: Record<string, unknown>;
+}
+
+export interface FormRepresentation extends ModelRepresentation {
+  formDefinition: {
+    fields?: FormField[];
+    outcomes?: { id?: string; name: string }[];
+  };
+}
+
+export interface DecisionTableExpression {
+  id: string;
+  label?: string;
+  variableId?: string;
+  type?: string;
+  entries?: string[];
+}
+
+export interface DecisionTableRepresentation extends ModelRepresentation {
+  decisionTableDefinition: {
+    key?: string;
+    hitPolicy?: string;
+    collectOperator?: string;
+    inputExpressions?: DecisionTableExpression[];
+    outputExpressions?: DecisionTableExpression[];
+    rules?: Record<string, string>[];
+    forceDMN11?: boolean;
+  };
+}
+
+export interface AppModelReference {
+  id: string;
+  name: string;
+  version?: number;
+  modelType?: ModelType;
+  description?: string;
+  lastUpdatedBy?: string;
+  lastUpdated?: number;
+}
+
+export interface AppDefinitionRepresentation {
+  id: string;
+  name: string;
+  key: string;
+  description?: string | null;
+  version?: number;
+  definition: {
+    models?: AppModelReference[];
+    cmmnModels?: AppModelReference[];
+    theme?: string;
+    icon?: string;
+    usersAccess?: string;
+    groupsAccess?: string;
+  };
+}
+
+/** `POST /rest/models/{id}/history/{historyId}` answers with the models the restored version refers to but cannot find. */
+export interface ReviveResult {
+  unresolvedModels?: {
+    unresolveModelId: string;
+    unresolvedModelName: string;
+    unresolvedModelType: string;
+  }[];
+}

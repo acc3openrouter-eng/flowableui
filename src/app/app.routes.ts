@@ -7,6 +7,12 @@ const library = (kind: string, title: string) => ({
   title: `${title} · Flowable Modeler`,
 });
 
+const details = (kind: string, title: string) => ({
+  loadComponent: () => import('./features/details/model-details').then((m) => m.ModelDetails),
+  data: { kind },
+  title: `${title} · Flowable Modeler`,
+});
+
 const soon = (title: string, back: string) => ({
   loadComponent: () => import('./features/placeholder/coming-soon').then((m) => m.ComingSoon),
   data: { title, back },
@@ -34,34 +40,34 @@ export const routes: Routes = [
       { path: 'decision-services', ...library('decision-services', 'Decision services') },
       { path: 'apps', ...library('apps', 'Apps') },
 
-      // Details pages (phase 2).
-      { path: 'processes/:modelId', ...soon('Process model details', '/processes') },
+      // Details pages, for the latest version and for a historic one.
+      { path: 'processes/:modelId', ...details('processes', 'Process model') },
       {
         path: 'processes/:modelId/history/:modelHistoryId',
-        ...soon('Process model history', '/processes'),
+        ...details('processes', 'Process model history'),
       },
-      { path: 'casemodels/:modelId', ...soon('Case model details', '/casemodels') },
+      { path: 'casemodels/:modelId', ...details('casemodels', 'Case model') },
       {
         path: 'casemodels/:modelId/history/:modelHistoryId',
-        ...soon('Case model history', '/casemodels'),
+        ...details('casemodels', 'Case model history'),
       },
-      { path: 'forms/:modelId', ...soon('Form details', '/forms') },
-      { path: 'forms/:modelId/history/:modelHistoryId', ...soon('Form history', '/forms') },
-      { path: 'decision-tables/:modelId', ...soon('Decision table details', '/decision-tables') },
+      { path: 'forms/:modelId', ...details('forms', 'Form') },
+      { path: 'forms/:modelId/history/:modelHistoryId', ...details('forms', 'Form history') },
+      { path: 'decision-tables/:modelId', ...details('decision-tables', 'Decision table') },
       {
         path: 'decision-tables/:modelId/history/:modelHistoryId',
-        ...soon('Decision table history', '/decision-tables'),
+        ...details('decision-tables', 'Decision table history'),
       },
-      {
-        path: 'decision-services/:modelId',
-        ...soon('Decision service details', '/decision-services'),
-      },
+      { path: 'decision-services/:modelId', ...details('decision-services', 'Decision service') },
       {
         path: 'decision-services/:modelId/history/:modelHistoryId',
-        ...soon('Decision service history', '/decision-services'),
+        ...details('decision-services', 'Decision service history'),
       },
-      { path: 'apps/:modelId', ...soon('App definition details', '/apps') },
-      { path: 'apps/:modelId/history/:modelHistoryId', ...soon('App definition history', '/apps') },
+      { path: 'apps/:modelId', ...details('apps', 'App definition') },
+      {
+        path: 'apps/:modelId/history/:modelHistoryId',
+        ...details('apps', 'App definition history'),
+      },
 
       // Editors (phases 3 to 7).
       { path: 'form-editor/:modelId', ...soon('Form editor', '/forms') },

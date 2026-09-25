@@ -2,7 +2,17 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 import { ApiUrls } from './api-urls';
-import { ModelQuery, ModelRepresentation, NewModel, ResultList } from './api.types';
+import {
+  AppDefinitionRepresentation,
+  DecisionTableRepresentation,
+  FormRepresentation,
+  ModelQuery,
+  ModelRepresentation,
+  NewModel,
+  ResultList,
+  ReviveResult,
+} from './api.types';
+import { DisplayModel } from '../../shared/diagram-viewer/display-model';
 
 /** Model CRUD shared by every model type (processes, case models, forms, decisions, apps). */
 @Injectable({ providedIn: 'root' })
@@ -54,8 +64,12 @@ export class ModelsApi {
     return this.http.get<ModelRepresentation>(this.urls.modelHistory(modelId, historyId));
   }
 
-  useAsNewVersion(modelId: string, historyId: string, comment: string): Observable<unknown> {
-    return this.http.post(this.urls.modelHistory(modelId, historyId), {
+  useAsNewVersion(
+    modelId: string,
+    historyId: string,
+    comment: string,
+  ): Observable<ReviveResult | null> {
+    return this.http.post<ReviveResult | null>(this.urls.modelHistory(modelId, historyId), {
       action: 'useAsNewVersion',
       comment,
     });
@@ -70,5 +84,48 @@ export class ModelsApi {
     const body = new FormData();
     body.append('file', file, file.name);
     return this.http.post<ModelRepresentation>(url, body);
+  }
+
+  /** Display JSON used by the read-only diagram (processes, case models, decision services). */
+  displayJson(modelId: string, historyId?: string): Observable<DisplayModel> {
+    return this.http.get<DisplayModel>(
+      historyId ? this.urls.modelHistoryJson(modelId, historyId) : this.urls.modelJson(modelId),
+    );
+  }
+
+  form(modelId: string, historyId?: string): Observable<FormRepresentation> {
+    return this.http.get<FormRepresentation>(
+      historyId ? this.urls.formModelHistory(modelId, historyId) : this.urls.formModel(modelId),
+    );
+  }
+
+  decisionTable(modelId: string, historyId?: string): Observable<DecisionTableRepresentation> {
+    return this.http.get<DecisionTableRepresentation>(
+      historyId
+        ? this.urls.decisionTableModelHistory(modelId, historyId)
+        : this.urls.decisionTableModel(modelId),
+    );
+  }
+
+  appDefinition(modelId: string, historyId?: string): Observable<AppDefinitionRepresentation> {
+    return this.http.get<AppDefinitionRepresentation>(
+      historyId
+        ? this.urls.appDefinitionHistory(modelId, historyId)
+        : this.urls.appDefinition(modelId),
+    );
+  }
+
+  publishApp(
+    modelId: string,
+    comment: string,
+    force = false,
+  ): Observable<{ error?: boolean; errorDescription?: string }> {
+    return this.http.post<{ error?: boolean; errorDescription?: string }>(
+      this.urls.appDefinitionPublish(modelId),
+      {
+        comment,
+        ...(force ? { force: true } : {}),
+      },
+    );
   }
 }
