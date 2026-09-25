@@ -190,7 +190,7 @@
           </button>
         </div>
       }
-      @if (one.deletable || one.morph) {
+      @if (one.deletable || one.morph || one.opens) {
         <div class="shape-actions" [style.left.px]="b.x * z" [style.top.px]="(b.y + b.h) * z + 8">
           @if (one.deletable) {
             <button
@@ -212,6 +212,17 @@
               (click)="openMorph($event, one.node.id)"
             >
               <i class="pi pi-wrench"></i>
+            </button>
+          }
+          @if (one.opens) {
+            <button
+              type="button"
+              class="quick-item"
+              pTooltip="Edit sub-process"
+              aria-label="Edit sub-process"
+              (click)="openRequested.emit(one.node.id)"
+            >
+              <i class="pi pi-pencil"></i>
             </button>
           }
         </div>

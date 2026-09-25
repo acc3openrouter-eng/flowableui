@@ -21,7 +21,7 @@ import {
   resizeNode,
   setParent,
 } from './diagram-document';
-import { DiagramEdge, DiagramNode, canvasSize } from './diagram-model';
+import { COLLAPSED_SUBPROCESS, DiagramEdge, DiagramNode, canvasSize } from './diagram-model';
 import { DiagramRenderer } from './diagram-renderer';
 import { Box, Point, boxInside, center, distance, distanceToSegment } from './geometry';
 import { Stencil } from './stencil-set';
@@ -61,6 +61,8 @@ export class DiagramCanvas {
   readonly zoomChange = output<number>();
   /** Asks the host to open the "change type" menu for a shape. */
   readonly morphRequested = output<{ id: string; anchor: HTMLElement }>();
+  /** Asks the host to open a collapsed sub-process's own diagram. */
+  readonly openRequested = output<string>();
 
   private readonly scroller = viewChild.required<ElementRef<HTMLDivElement>>('scroller');
   private readonly content = viewChild.required<ElementRef<SVGGElement>>('content');
@@ -115,6 +117,7 @@ export class DiagramCanvas {
       quick: this.doc().stencils.profile.hasQuickMenu(stencil),
       deletable: this.doc().canDelete(node.id),
       morph: this.doc().stencils.morphOptions(stencil).length > 0,
+      opens: node.stencil === COLLAPSED_SUBPROCESS,
     };
   });
 
@@ -122,8 +125,14 @@ export class DiagramCanvas {
     afterRenderEffect(() => {
       const state = this.doc().state();
       untracked(() => {
-        if (!this.renderer)
+        // A new document (a sub-process opened, or the model reloaded) gets a fresh drawing.
+        if (this.renderer?.doc !== this.doc()) {
+          this.renderer?.dispose();
           this.renderer = new DiagramRenderer(this.doc(), this.content().nativeElement);
+          this.drag = null;
+          this.editing.set(null);
+          this.highlight.set(null);
+        }
         this.routes.set(this.renderer.render(state));
       });
     });

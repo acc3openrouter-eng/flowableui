@@ -88,6 +88,8 @@ export class PropertyPanel implements OnDestroy {
   readonly modelName = input('');
   /** Shown above the title when nothing is selected. */
   readonly rootLabel = input('Process');
+  /** Shown instead of the root's properties when they cannot be edited here. */
+  readonly rootNote = input<string | null>(null);
 
   protected readonly filter = signal('');
 

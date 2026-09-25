@@ -211,6 +211,20 @@
       tooltipPosition="bottom"
       (onClick)="zoomFit()"
     />
+    @if (trail().length) {
+      <span class="sep"></span>
+      <nav class="trail" aria-label="Open sub-processes">
+        <button type="button" (click)="closeSubProcesses(0)">{{ m.name }}</button>
+        @for (t of trail(); track t.id; let last = $last) {
+          <i class="pi pi-angle-right" aria-hidden="true"></i>
+          @if (last) {
+            <span aria-current="page">{{ t.name }}</span>
+          } @else {
+            <button type="button" (click)="closeSubProcesses($index + 1)">{{ t.name }}</button>
+          }
+        }
+      </nav>
+    }
     <span class="grow"></span>
     <p-button
       icon="pi pi-question-circle"
@@ -300,11 +314,21 @@
       [zoom]="zoom()"
       (zoomChange)="setZoom($event)"
       (morphRequested)="openMorph($event)"
+      (openRequested)="openSubProcess($event)"
     />
 
     @if (propertiesOpen()) {
       <aside class="properties" aria-label="Properties">
-        <fm-property-panel [doc]="d" [modelName]="m.name" [rootLabel]="config().typeLabel" />
+        @if (trail().at(-1); as sub) {
+          <fm-property-panel
+            [doc]="d"
+            [modelName]="sub.name"
+            rootLabel="Sub-process"
+            rootNote="Select an element to edit it. The sub-process's own properties are edited on the diagram that contains it."
+          />
+        } @else {
+          <fm-property-panel [doc]="d" [modelName]="m.name" [rootLabel]="config().typeLabel" />
+        }
       </aside>
     }
   </div>
