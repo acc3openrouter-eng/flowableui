@@ -14,7 +14,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the feature inventory and the phased plan.
 | 2 | Model libraries (list, search, sort, create, duplicate, import) and details pages (preview, history, edit, delete, export, restore, publish) | done |
 | 3 | Form builder (palette with drag and drop, field properties, outcomes, save with new version, unsaved-changes guard) | done |
 | 4 | Decision table editor (hit policy, input and output columns with allowed values, rules, Force DMN 1.1, save with new version) | done |
-| 5 | App definition editor | planned |
+| 5 | App definition editor (icon, theme, access, included process and case models, save and publish) | done |
 | 6 | Diagram engine + BPMN editor | planned |
 | 7 | CMMN and DMN decision service editors | planned |
 | 8 | Polish, e2e tests | planned |
@@ -57,6 +57,9 @@ from the same origin as the Flowable UI server (or through a reverse proxy, like
   warns about duplicate field ids, and draws the form thumbnail itself instead of using html2canvas.
 - The decision table editor is a plain HTML grid instead of Handsontable: cells are native inputs and selects,
   number and date cells are highlighted when invalid, and rule actions sit on each rule number.
+- The app definition editor shows a live preview of the app tile, picks icons from a grid instead of a dropdown,
+  and picks included models as selectable cards with thumbnails. Bootstrap glyphicons are mapped to Optimus icons
+  for display but stored unchanged, so apps stay compatible with the Flowable task app.
 
 ## License
 

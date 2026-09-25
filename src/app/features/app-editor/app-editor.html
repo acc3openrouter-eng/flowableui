@@ -1,0 +1,255 @@
+@if (app.error()) {
+  <p-message severity="error"
+    >Could not load the app definition. {{ app.error()?.message }}</p-message
+  >
+} @else if (!meta() || !def()) {
+  <p-skeleton height="4rem" borderRadius="1rem" />
+  <div class="layout loading">
+    <p-skeleton height="28rem" borderRadius="1rem" />
+    <p-skeleton height="28rem" borderRadius="1rem" />
+  </div>
+} @else {
+  @let m = meta()!;
+  @let d = def()!;
+  <header class="editor-header">
+    <div class="identity">
+      <p-button
+        icon="pi pi-arrow-left"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        ariaLabel="Back to app definition details"
+        [routerLink]="['/apps', m.id]"
+      />
+      <div>
+        <h1>
+          {{ m.name }}
+          @if (dirty()) {
+            <span class="unsaved" title="Unsaved changes" aria-label="Unsaved changes"></span>
+          }
+        </h1>
+        <p>
+          <span class="key">{{ m.key }}</span>
+          <span>{{ 'FORM-BUILDER.VERSION' | translate: { version: m.version } }}</span>
+        </p>
+      </div>
+    </div>
+    <div class="actions">
+      <p-button
+        [label]="'GENERAL.ACTION.CLOSE' | translate"
+        severity="secondary"
+        [text]="true"
+        (onClick)="close()"
+      />
+      <p-button
+        [label]="'GENERAL.ACTION.SAVE' | translate"
+        icon="pi pi-save"
+        (onClick)="openSave()"
+      />
+    </div>
+  </header>
+
+  <div class="layout">
+    <section class="panel appearance" aria-labelledby="appearance-title">
+      <h2 id="appearance-title">{{ 'APP.TITLE.PREVIEW' | translate }}</h2>
+      <div class="preview">
+        <fm-app-tile
+          [name]="m.name"
+          [description]="m.description"
+          [icon]="d.icon"
+          [theme]="d.theme"
+        />
+      </div>
+
+      <div class="field">
+        <span class="label" id="icon-label">{{ 'APP.ICON' | translate }}</span>
+        <button
+          type="button"
+          class="picker-toggle"
+          aria-labelledby="icon-label"
+          (click)="iconPopover.toggle($event)"
+        >
+          <i [class]="iconClass(d.icon)"></i>
+          {{ 'APP.ACTION.SELECT-ICON' | translate }}
+          <i class="pi pi-chevron-down caret"></i>
+        </button>
+        <p-popover #iconPopover appendTo="body">
+          <div
+            class="icon-grid"
+            role="listbox"
+            [attr.aria-label]="'APP.TITLE.SELECT-ICON' | translate"
+          >
+            @for (icon of icons; track icon) {
+              <button
+                type="button"
+                role="option"
+                [class.selected]="icon === d.icon"
+                [attr.aria-selected]="icon === d.icon"
+                [attr.aria-label]="icon.replace('glyphicon-', '')"
+                [title]="icon.replace('glyphicon-', '')"
+                (click)="setIcon(icon); iconPopover.hide()"
+              >
+                <i [class]="iconClass(icon)"></i>
+              </button>
+            }
+          </div>
+        </p-popover>
+      </div>
+
+      <div class="field">
+        <span class="label" id="theme-label">{{ 'APP.THEME' | translate }}</span>
+        <div class="swatches" role="radiogroup" aria-labelledby="theme-label">
+          @for (theme of themes; track theme.id; let i = $index) {
+            <button
+              type="button"
+              role="radio"
+              class="swatch"
+              [class.selected]="theme.id === d.theme"
+              [attr.aria-checked]="theme.id === d.theme"
+              [attr.aria-label]="'Theme ' + (i + 1)"
+              [style.background]="themeBackground(theme.id)"
+              (click)="setTheme(theme.id)"
+            >
+              @if (theme.id === d.theme) {
+                <i class="pi pi-check"></i>
+              }
+            </button>
+          }
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="app-groups">{{ 'APP.GROUPS-ACCESS' | translate }}</label>
+        <input
+          id="app-groups"
+          pInputText
+          [ngModel]="d.groupsAccess ?? ''"
+          (ngModelChange)="setAccess('groupsAccess', $event)"
+          placeholder="flowableUser, managers"
+          autocomplete="off"
+        />
+      </div>
+      <div class="field">
+        <label for="app-users">{{ 'APP.USERS-ACCESS' | translate }}</label>
+        <input
+          id="app-users"
+          pInputText
+          [ngModel]="d.usersAccess ?? ''"
+          (ngModelChange)="setAccess('usersAccess', $event)"
+          placeholder="admin, kermit"
+          autocomplete="off"
+        />
+      </div>
+    </section>
+
+    <section class="panel models" aria-labelledby="models-title">
+      <div class="models-head">
+        <h2 id="models-title">{{ 'APP.DETAILS.MODELS-TITLE' | translate }}</h2>
+        <p-button
+          [label]="'APP.ACTION.EDIT-MODELS' | translate"
+          icon="pi pi-list-check"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="modelsVisible.set(true)"
+        />
+      </div>
+      <nav class="segmented" role="tablist">
+        <button
+          type="button"
+          role="tab"
+          [class.active]="tab() === 'bpmn'"
+          [attr.aria-selected]="tab() === 'bpmn'"
+          (click)="tab.set('bpmn')"
+        >
+          <i class="pi pi-sitemap"></i> {{ 'GENERAL.NAVIGATION.PROCESSES' | translate }}
+          <span class="badge">{{ bpmnModels().length }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          [class.active]="tab() === 'cmmn'"
+          [attr.aria-selected]="tab() === 'cmmn'"
+          (click)="tab.set('cmmn')"
+        >
+          <i class="pi pi-briefcase"></i> {{ 'GENERAL.NAVIGATION.CASEMODELS' | translate }}
+          <span class="badge">{{ cmmnModels().length }}</span>
+        </button>
+      </nav>
+
+      @if (!hasModels()) {
+        <div class="empty">
+          <i class="pi pi-inbox"></i>
+          <p>{{ 'APP.DETAILS.NO-MODELS-SELECTED' | translate }}</p>
+          <p-button
+            [label]="'APP.ACTION.EDIT-MODELS' | translate"
+            icon="pi pi-plus"
+            (onClick)="modelsVisible.set(true)"
+          />
+        </div>
+      } @else if (shownModels().length === 0) {
+        <p class="none">Nothing included here yet.</p>
+      } @else {
+        <ul class="model-grid">
+          @for (model of shownModels(); track model.id) {
+            <li class="model-card">
+              <a class="thumb" [routerLink]="modelRoute(model)" [attr.aria-label]="model.name">
+                <img
+                  [src]="thumbnail(model)"
+                  alt=""
+                  loading="lazy"
+                  (error)="$any($event.target).hidden = true"
+                />
+              </a>
+              <div class="info">
+                <a class="name" [routerLink]="modelRoute(model)">{{ model.name }}</a>
+                <span class="meta">
+                  @if (model.version) {
+                    v{{ model.version }}
+                  }
+                  @if (model.lastUpdatedBy) {
+                    · {{ model.lastUpdatedBy }}
+                  }
+                </span>
+              </div>
+              <p-button
+                icon="pi pi-times"
+                [text]="true"
+                [rounded]="true"
+                size="small"
+                severity="secondary"
+                ariaLabel="Remove from app"
+                pTooltip="Remove from app"
+                tooltipPosition="top"
+                styleClass="remove"
+                (onClick)="removeModel(model)"
+              />
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  </div>
+
+  <fm-included-models-dialog
+    [(visible)]="modelsVisible"
+    [current]="included()"
+    [initialTab]="tab()"
+    (changed)="onModelsChanged($event)"
+  />
+  <fm-model-save-dialog
+    [labels]="saveLabels"
+    [(visible)]="saveVisible"
+    [initial]="saveInitial()"
+    [showNewVersion]="false"
+    [showPublish]="hasModels()"
+    [saving]="saving()"
+    [error]="saveError()"
+    (save)="onSave($event)"
+  />
+  <fm-unsaved-changes-dialog
+    [confirmation]="leave"
+    [saving]="saving()"
+    [error]="saveError()"
+    (choose)="resolveLeave($event)"
+  />
+}

@@ -4,6 +4,8 @@ import { Observable } from 'rxjs';
 import { ApiUrls } from './api-urls';
 import {
   AppDefinitionRepresentation,
+  AppDefinitionSaveRepresentation,
+  AppDefinitionUpdateResult,
   DecisionTableRepresentation,
   DecisionTableSaveRepresentation,
   FormRepresentation,
@@ -128,6 +130,23 @@ export class ModelsApi {
     body: DecisionTableSaveRepresentation,
   ): Observable<DecisionTableRepresentation> {
     return this.http.put<DecisionTableRepresentation>(this.urls.decisionTableModel(modelId), body);
+  }
+
+  /** Saves an app definition, and publishes it when `publish` is set. */
+  saveAppDefinition(
+    modelId: string,
+    body: AppDefinitionSaveRepresentation,
+  ): Observable<AppDefinitionUpdateResult> {
+    return this.http.put<AppDefinitionUpdateResult>(this.urls.appDefinition(modelId), body);
+  }
+
+  /** Process models that can be included in an app (latest versions, BPMN only). */
+  modelsForAppDefinition(): Observable<ResultList<ModelRepresentation>> {
+    return this.http.get<ResultList<ModelRepresentation>>(this.urls.modelsForAppDefinition());
+  }
+
+  cmmnModelsForAppDefinition(): Observable<ResultList<ModelRepresentation>> {
+    return this.http.get<ResultList<ModelRepresentation>>(this.urls.cmmnModelsForAppDefinition());
   }
 
   publishApp(

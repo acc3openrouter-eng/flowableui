@@ -494,6 +494,7 @@ export class DecisionTableEditor implements HasUnsavedChanges {
     this.persist({
       ...this.saveInitial(),
       forceDmn11: !!this.def()?.forceDMN11,
+      publish: false,
       newVersion: false,
       comment: '',
     }).then((ok) => ok && this.leave.finish(true));

@@ -330,9 +330,13 @@ export class FormEditor implements HasUnsavedChanges {
       this.leave.finish(choice === 'discard');
       return;
     }
-    this.persist({ ...this.saveInitial(), newVersion: false, comment: '', forceDmn11: false }).then(
-      (ok) => ok && this.leave.finish(true),
-    );
+    this.persist({
+      ...this.saveInitial(),
+      newVersion: false,
+      comment: '',
+      forceDmn11: false,
+      publish: false,
+    }).then((ok) => ok && this.leave.finish(true));
   }
 
   @HostListener('window:beforeunload', ['$event'])
