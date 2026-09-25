@@ -154,4 +154,38 @@ describe('diagram document', () => {
     expect(doc.state().nodes['timer']).toBeUndefined();
     expect(doc.state().edges['f1']).toBeUndefined();
   });
+
+  it('edits a collapsed sub-process as its own document', () => {
+    const doc = new DiagramDocument(set, 'm1');
+    doc.load({
+      properties: { process_id: 'p' },
+      childShapes: [
+        {
+          resourceId: 'sub',
+          stencil: { id: 'CollapsedSubProcess' },
+          bounds: { upperLeft: { x: 100, y: 100 }, lowerRight: { x: 200, y: 180 } },
+          properties: { name: 'Ship' },
+          childShapes: [
+            {
+              resourceId: 'inner',
+              stencil: { id: 'UserTask' },
+              bounds: { upperLeft: { x: 40, y: 40 }, lowerRight: { x: 140, y: 120 } },
+              properties: { name: 'Pack' },
+            },
+          ],
+        },
+      ],
+    });
+    // The children stay with the sub-process instead of appearing on the model's canvas.
+    expect(Object.keys(doc.state().nodes)).toEqual(['sub']);
+    const sub = doc.openSubProcess('sub')!;
+    expect(sub.state().nodes['inner'].properties['name']).toBe('Pack');
+    sub.setProperty('inner', 'name', 'Pack and label');
+    doc.setSubProcessContent('sub', sub);
+    expect(doc.dirty()).toBe(true);
+    const saved = doc.toJson().childShapes![0].childShapes!;
+    expect(saved.map((s) => s.properties?.['name'])).toEqual(['Pack and label']);
+    doc.undo();
+    expect(doc.toJson().childShapes![0].childShapes![0].properties?.['name']).toBe('Pack');
+  });
 });

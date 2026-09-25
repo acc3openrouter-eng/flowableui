@@ -13,6 +13,17 @@
     sans-serif;
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
+
+  /* Text colors that keep 4.5:1 contrast on tinted surfaces (the theme's muted and primary colors fall just short). */
+  --fm-text-secondary: var(--p-surface-600);
+  --fm-primary-text: var(--p-primary-700);
+  --fm-warning-text: var(--p-orange-700);
+}
+
+.app-dark {
+  --fm-text-secondary: var(--p-surface-300);
+  --fm-primary-text: var(--p-primary-300);
+  --fm-warning-text: var(--p-orange-300);
 }
 
 html,
@@ -47,4 +58,17 @@ a {
 
 .mt-3 {
   margin-top: 1rem;
+}
+
+/* Text for screen readers only. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }

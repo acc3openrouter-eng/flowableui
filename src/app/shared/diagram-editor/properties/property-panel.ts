@@ -62,6 +62,8 @@ export function conditionText(value: unknown): string {
  */
 @Component({
   selector: 'fm-property-panel',
+  // Which element the rows belong to (lets tests wait for a selection to reach the panel).
+  host: { '[attr.data-element]': 'element()?.id ?? null' },
   imports: [
     FormsModule,
     TranslatePipe,
@@ -88,6 +90,8 @@ export class PropertyPanel implements OnDestroy {
   readonly modelName = input('');
   /** Shown above the title when nothing is selected. */
   readonly rootLabel = input('Process');
+  /** Shown instead of the root's properties when they cannot be edited here. */
+  readonly rootNote = input<string | null>(null);
 
   protected readonly filter = signal('');
 

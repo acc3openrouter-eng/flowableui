@@ -83,6 +83,9 @@ const MANAGED_KEYS = new Set([
   'target',
 ]);
 
+/** Sub-process whose content is edited on its own canvas and stored in its `childShapes`. */
+export const COLLAPSED_SUBPROCESS = 'CollapsedSubProcess';
+
 export const CANVAS_MIN = { w: 1200, h: 1050 };
 
 /** Oryx `provideId`: "sid-" plus an upper-case UUID v4. */
@@ -169,7 +172,7 @@ export function loadDiagram(json: ModelJson, set: StencilSet, clamp: SizeClamp):
       );
       if (shape.dockers?.length) dockers.set(node.id, shape.dockers);
       // Collapsed sub-processes keep their children in their own canvas: leave them as data.
-      if (shape.stencil.id === 'CollapsedSubProcess') {
+      if (shape.stencil.id === COLLAPSED_SUBPROCESS) {
         node.extra['childShapes'] = shape.childShapes ?? [];
       } else {
         visit(shape.childShapes ?? [], node);
@@ -265,7 +268,7 @@ export function saveDiagram(
       properties: node.properties,
       stencil: { id: node.stencil },
       childShapes:
-        node.stencil === 'CollapsedSubProcess' && Array.isArray(node.extra['childShapes'])
+        node.stencil === COLLAPSED_SUBPROCESS && Array.isArray(node.extra['childShapes'])
           ? (node.extra['childShapes'] as ShapeJson[])
           : node.children.map((c) => nodeJson(state.nodes[c], node.bounds)),
       outgoing: [

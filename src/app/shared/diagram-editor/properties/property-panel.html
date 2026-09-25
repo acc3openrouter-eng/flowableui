@@ -9,7 +9,7 @@
     }
   </div>
   <h2 class="title" [title]="title()">{{ multiple() ? '' : title() }}</h2>
-  @if (!multiple() && rows().length > 6) {
+  @if (!multiple() && (element() || !rootNote()) && rows().length > 6) {
     <p-iconfield class="filter">
       <p-inputicon styleClass="pi pi-search" />
       <input
@@ -26,6 +26,8 @@
 
 @if (multiple()) {
   <p class="note">Select a single element to edit its properties.</p>
+} @else if (!element() && rootNote()) {
+  <p class="note">{{ rootNote() }}</p>
 } @else {
   <div class="rows">
     @for (row of shown(); track row.track) {
@@ -99,6 +101,7 @@
                     size="small"
                     appendTo="body"
                     [inputId]="id"
+                    [ariaLabel]="row.prop.title | translate"
                     [options]="row.editor.options"
                     optionLabel="label"
                     optionValue="value"
@@ -113,6 +116,7 @@
                     size="small"
                     appendTo="body"
                     [inputId]="id"
+                    [ariaLabel]="row.prop.title | translate"
                     [options]="definitionOptions(row.editor.definitions)"
                     optionLabel="label"
                     optionValue="value"
@@ -127,6 +131,7 @@
                   size="small"
                   appendTo="body"
                   [inputId]="id"
+                  [ariaLabel]="row.prop.title | translate"
                   [options]="planItemOptions()"
                   optionLabel="label"
                   optionValue="value"

@@ -1,10 +1,12 @@
 import { computed, signal } from '@angular/core';
 import {
+  COLLAPSED_SUBPROCESS,
   DiagramEdge,
   DiagramElement,
   DiagramNode,
   DiagramState,
   ModelJson,
+  ShapeJson,
   loadDiagram,
   newResourceId,
   placeOnHost,
@@ -188,6 +190,27 @@ export class DiagramDocument {
     change(draft);
     this.committed.set(draft);
     this.markSaved();
+  }
+
+  /** The diagram inside a collapsed sub-process, as its own document (the original edits it on its own canvas). */
+  openSubProcess(id: string): DiagramDocument | null {
+    const node = this.state().nodes[id];
+    if (node?.stencil !== COLLAPSED_SUBPROCESS) return null;
+    const children = node.extra['childShapes'];
+    const sub = new DiagramDocument(this.stencils, this.modelId, this.stencilsetUrl);
+    sub.load({
+      childShapes: Array.isArray(children) ? structuredClone(children as ShapeJson[]) : [],
+    });
+    return sub;
+  }
+
+  /** Writes a sub-process document back into its collapsed sub-process, as one undo step. */
+  setSubProcessContent(id: string, sub: DiagramDocument) {
+    const shapes = sub.toJson().childShapes ?? [];
+    this.update((draft) => {
+      const node = draft.nodes[id];
+      if (node) node.extra['childShapes'] = shapes;
+    });
   }
 
   /** Bounding box of all shapes and flows, or null for an empty diagram. */

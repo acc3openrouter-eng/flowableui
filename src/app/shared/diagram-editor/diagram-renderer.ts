@@ -19,12 +19,18 @@ export class DiagramRenderer {
   private readonly edgeLayer: SVGGElement;
 
   constructor(
-    private readonly doc: DiagramDocument,
+    readonly doc: DiagramDocument,
     host: SVGGElement,
   ) {
     this.nodeLayer = document.createElementNS(SVG_NS, 'g');
     this.edgeLayer = document.createElementNS(SVG_NS, 'g');
     host.append(this.nodeLayer, this.edgeLayer);
+  }
+
+  /** Removes everything this renderer drew. */
+  dispose() {
+    this.nodeLayer.remove();
+    this.edgeLayer.remove();
   }
 
   render(state: DiagramState): Map<string, Point[]> {

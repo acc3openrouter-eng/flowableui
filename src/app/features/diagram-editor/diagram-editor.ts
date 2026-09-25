@@ -35,6 +35,7 @@ import {
   ValidationError,
 } from '../../core/api/editor-api';
 import { errorMessage } from '../../core/api/error-message';
+import { AccountService } from '../../core/auth/account';
 import { HasUnsavedChanges } from '../../core/guards/unsaved-changes.guard';
 import { NOTATIONS, NotationId } from './notations';
 import { DiagramCanvas, paletteDrag } from '../../shared/diagram-editor/diagram-canvas';
@@ -47,6 +48,7 @@ import {
   SaveDialogLabels,
   SaveRequest,
 } from '../../shared/editor/model-save-dialog';
+import { GuidedTour, TourStep } from '../../shared/editor/guided-tour';
 import {
   LeaveChoice,
   LeaveConfirmation,
@@ -77,6 +79,7 @@ type ConflictChoice = 'overwrite' | 'newVersion' | 'discard';
     SkeletonModule,
     TooltipModule,
     DiagramCanvas,
+    GuidedTour,
     ModelSaveDialog,
     PropertyPanel,
     StencilIcon,
@@ -91,6 +94,7 @@ export class DiagramEditorPage implements HasUnsavedChanges {
   private readonly translate = inject(TranslateService);
   private readonly messages = inject(MessageService);
   private readonly injector = inject(Injector);
+  private readonly account = inject(AccountService);
 
   /** Route parameter. */
   readonly modelId = input.required<string>();
@@ -108,14 +112,20 @@ export class DiagramEditorPage implements HasUnsavedChanges {
   });
 
   protected readonly meta = signal<EditorModel | null>(null);
-  protected readonly doc = signal<DiagramDocument | null>(null);
+  private readonly root = signal<DiagramDocument | null>(null);
+  /** Collapsed sub-processes opened on their own canvas, outermost first. */
+  protected readonly trail = signal<{ id: string; name: string; doc: DiagramDocument }[]>([]);
+  /** The document on the canvas: the model, or the innermost open sub-process. */
+  protected readonly doc = computed(() => this.trail().at(-1)?.doc ?? this.root());
   protected readonly zoom = signal(1);
 
   private readonly canvas = viewChild(DiagramCanvas);
   private readonly panel = viewChild(PropertyPanel);
   private readonly morphPopover = viewChild<Popover>('morphPopover');
 
-  protected readonly dirty = computed(() => this.doc()?.dirty() ?? false);
+  protected readonly dirty = computed(
+    () => (this.root()?.dirty() ?? false) || this.trail().some((t) => t.doc.dirty()),
+  );
   protected readonly selectionCount = computed(() => this.doc()?.selection().length ?? 0);
   protected readonly selectedNodeCount = computed(() => {
     const doc = this.doc();
@@ -170,6 +180,38 @@ export class DiagramEditorPage implements HasUnsavedChanges {
   protected readonly conflictChoice = signal<ConflictChoice | null>(null);
   protected readonly leave = new LeaveConfirmation();
 
+  // Guided tour (the original's seven steps, with its texts)
+
+  protected readonly tourSteps = computed<TourStep[]>(() => [
+    {
+      title: 'TOUR.WELCOME-TITLE',
+      content: 'TOUR.WELCOME-CONTENT',
+      params: { userName: this.account.account()?.firstName || this.account.displayName() },
+    },
+    {
+      target: 'aside.palette',
+      title: 'TOUR.PALETTE-TITLE',
+      // The original text ends in an animation of opening a group.
+      content:
+        'All the elements you can add are here, arranged in groups. Click a group to open it, or type in the search box to find an element.',
+    },
+    { target: 'fm-diagram-canvas', title: 'TOUR.CANVAS-TITLE', content: 'TOUR.CANVAS-CONTENT' },
+    {
+      target: 'fm-diagram-canvas',
+      title: 'TOUR.DRAGDROP-TITLE',
+      content:
+        'Drag an element from the palette onto the canvas, or click it to add it in the middle of the view. ' +
+        'Then select it and use its quick menu to add and connect the next element.',
+    },
+    {
+      target: 'aside.properties',
+      title: 'TOUR.PROPERTIES-TITLE',
+      content: 'TOUR.PROPERTIES-CONTENT',
+    },
+    { target: '.toolbar', title: 'TOUR.TOOLBAR-TITLE', content: 'TOUR.TOOLBAR-CONTENT' },
+    { title: 'TOUR.END-TITLE', content: 'TOUR.END-CONTENT' },
+  ]);
+
   // Validation
 
   protected readonly validateVisible = signal(false);
@@ -195,7 +237,8 @@ export class DiagramEditorPage implements HasUnsavedChanges {
     );
     doc.load(model.model);
     this.meta.set(model);
-    this.doc.set(doc);
+    this.trail.set([]);
+    this.root.set(doc);
     this.expanded.set(
       new Set(
         stencils
@@ -291,6 +334,49 @@ export class DiagramEditorPage implements HasUnsavedChanges {
     canvas.focus();
   }
 
+  // Collapsed sub-processes
+
+  protected openSubProcess(id: string) {
+    const parent = this.doc();
+    const node = parent?.state().nodes[id];
+    const sub = parent?.openSubProcess(id);
+    if (!parent || !node || !sub) return;
+    this.panel()?.flush();
+    const name = String(node.properties['name'] ?? '').trim() || 'Sub-process';
+    this.trail.update((t) => [...t, { id, name, doc: sub }]);
+    afterNextRender(() => this.canvas()?.focus(), { injector: this.injector });
+  }
+
+  /** Leaves open sub-processes until `depth` remain, writing their changes into their parents. */
+  protected closeSubProcesses(depth: number) {
+    const trail = this.trail();
+    if (depth >= trail.length) return;
+    this.panel()?.flush();
+    this.syncTrail(depth);
+    const left = trail[depth];
+    this.trail.set(trail.slice(0, depth));
+    this.doc()?.selection.set([left.id]);
+    afterNextRender(
+      () => {
+        this.canvas()?.reveal(left.id);
+        this.canvas()?.focus();
+      },
+      { injector: this.injector },
+    );
+  }
+
+  /** Writes changed sub-process diagrams (from `from` inward) into their parents, innermost first. */
+  private syncTrail(from = 0) {
+    const trail = this.trail();
+    for (let i = trail.length - 1; i >= from; i--) {
+      const { id, doc } = trail[i];
+      if (!doc.dirty()) continue;
+      const parent = i === 0 ? this.root() : trail[i - 1].doc;
+      parent?.setSubProcessContent(id, doc);
+      doc.markSaved();
+    }
+  }
+
   // Morph
 
   protected openMorph(request: { id: string; anchor: HTMLElement }) {
@@ -313,9 +399,10 @@ export class DiagramEditorPage implements HasUnsavedChanges {
   // Validation
 
   protected validate() {
-    const doc = this.doc();
-    if (!doc) return;
     this.panel()?.flush();
+    this.syncTrail();
+    const doc = this.root();
+    if (!doc) return;
     this.validation.set(null);
     this.validationError.set(null);
     this.validating.set(true);
@@ -334,7 +421,9 @@ export class DiagramEditorPage implements HasUnsavedChanges {
 
   /** Selects the element a validation problem is about. */
   protected goTo(problem: ValidationError) {
-    const doc = this.doc();
+    // Problems are reported on the model; sub-process canvases are left for it.
+    if (this.trail().length) this.closeSubProcesses(0);
+    const doc = this.root();
     if (!doc || !problem.activityId) return;
     const state = doc.state();
     const id =
@@ -375,10 +464,11 @@ export class DiagramEditorPage implements HasUnsavedChanges {
     request: Pick<SaveRequest, 'name' | 'key' | 'description' | 'newVersion' | 'comment'>,
     resolve?: EditorSaveRequest['conflictResolveAction'],
   ): Promise<boolean | 'conflict'> {
-    const meta = this.meta();
-    const doc = this.doc();
-    if (!meta || !doc) return false;
     this.panel()?.flush();
+    this.syncTrail();
+    const meta = this.meta();
+    const doc = this.root();
+    if (!meta || !doc) return false;
     this.saving.set(true);
     this.saveError.set(null);
     try {

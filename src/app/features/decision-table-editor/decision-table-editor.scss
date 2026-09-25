@@ -114,7 +114,7 @@
   font-weight: 600;
   letter-spacing: 0.05em;
   text-transform: uppercase;
-  color: var(--p-text-muted-color);
+  color: var(--fm-text-secondary);
 
   &.input {
     background: var(--dt-input) !important;
@@ -182,7 +182,7 @@
   color: var(--p-text-muted-color);
 
   &.missing {
-    color: var(--p-orange-500);
+    color: var(--fm-warning-text);
     font-family: inherit;
   }
 }
