@@ -1,0 +1,232 @@
+<div
+  #scroller
+  class="scroller"
+  tabindex="0"
+  role="application"
+  aria-label="Diagram canvas"
+  (pointerdown)="onPointerDown($event)"
+  (pointermove)="onPointerMove($event)"
+  (pointerup)="onPointerUp($event)"
+  (pointercancel)="onPointerUp($event)"
+  (dblclick)="onDoubleClick($event)"
+  (wheel)="onWheel($event)"
+  (dragover)="onDragOver($event)"
+  (dragleave)="onDragLeave()"
+  (drop)="onDrop($event)"
+>
+  @let z = zoom();
+  @let s = size();
+  <div class="stage" [style.width.px]="s.w * z" [style.height.px]="s.h * z">
+    <svg
+      #svg
+      class="canvas"
+      [attr.width]="s.w * z"
+      [attr.height]="s.h * z"
+      [attr.viewBox]="'0 0 ' + s.w + ' ' + s.h"
+      [attr.font-family]="font"
+      font-size="12"
+    >
+      <g #content class="content" stroke="none"></g>
+      <g class="overlay">
+        @if (highlight(); as h) {
+          <rect
+            class="drop-target"
+            [class.forbidden]="!h.ok"
+            [attr.x]="h.box.x - 3"
+            [attr.y]="h.box.y - 3"
+            [attr.width]="h.box.w + 6"
+            [attr.height]="h.box.h + 6"
+            rx="6"
+          />
+        }
+        @for (n of selectedNodes(); track n.id) {
+          <rect
+            class="selection"
+            [attr.x]="n.bounds.x - 4"
+            [attr.y]="n.bounds.y - 4"
+            [attr.width]="n.bounds.w + 8"
+            [attr.height]="n.bounds.h + 8"
+            rx="4"
+          />
+        }
+        @if (single(); as one) {
+          @if (one.resizable) {
+            @let b = one.node.bounds;
+            @for (
+              h of [
+                { id: 'nw', x: b.x - 4, y: b.y - 4 },
+                { id: 'ne', x: b.x + b.w + 4, y: b.y - 4 },
+                { id: 'sw', x: b.x - 4, y: b.y + b.h + 4 },
+                { id: 'se', x: b.x + b.w + 4, y: b.y + b.h + 4 },
+              ];
+              track h.id
+            ) {
+              <rect
+                class="handle"
+                [class]="'handle resize-' + h.id"
+                [attr.data-handle]="'resize:' + h.id"
+                [attr.x]="h.x - 4 / z"
+                [attr.y]="h.y - 4 / z"
+                [attr.width]="8 / z"
+                [attr.height]="8 / z"
+              />
+            }
+          }
+        }
+        @if (selectedEdge(); as e) {
+          @let hs = edgeHandles(e.points);
+          <polyline class="edge-selection" [attr.points]="polyline(e.points)" />
+          @for (m of hs.mids; track m.index) {
+            <circle
+              class="handle mid"
+              [attr.data-handle]="'mid:' + m.index"
+              [attr.cx]="m.x"
+              [attr.cy]="m.y"
+              [attr.r]="4 / z"
+            >
+              <title>Drag to add a bend point</title>
+            </circle>
+          }
+          @for (b of hs.bends; track $index) {
+            <rect
+              class="handle bend"
+              [attr.data-handle]="'bend:' + $index"
+              [attr.x]="b.x - 4 / z"
+              [attr.y]="b.y - 4 / z"
+              [attr.width]="8 / z"
+              [attr.height]="8 / z"
+            >
+              <title>Drag to move, double-click to remove</title>
+            </rect>
+          }
+          <circle
+            class="handle end"
+            data-handle="end:source"
+            [attr.cx]="hs.start.x"
+            [attr.cy]="hs.start.y"
+            [attr.r]="5 / z"
+          />
+          <circle
+            class="handle end"
+            data-handle="end:target"
+            [attr.cx]="hs.end.x"
+            [attr.cy]="hs.end.y"
+            [attr.r]="5 / z"
+          />
+        }
+        @if (guides().x != null) {
+          <line
+            class="guide"
+            [attr.x1]="guides().x"
+            [attr.x2]="guides().x"
+            y1="0"
+            [attr.y2]="s.h"
+          />
+        }
+        @if (guides().y != null) {
+          <line
+            class="guide"
+            [attr.y1]="guides().y"
+            [attr.y2]="guides().y"
+            x1="0"
+            [attr.x2]="s.w"
+          />
+        }
+        @if (connectLine(); as l) {
+          <line
+            class="connect-line"
+            [attr.x1]="l.from.x"
+            [attr.y1]="l.from.y"
+            [attr.x2]="l.to.x"
+            [attr.y2]="l.to.y"
+          />
+        }
+        @if (marquee(); as m) {
+          <rect
+            class="marquee"
+            [attr.x]="m.x"
+            [attr.y]="m.y"
+            [attr.width]="m.w"
+            [attr.height]="m.h"
+          />
+        }
+      </g>
+    </svg>
+
+    @if (single(); as one) {
+      @let b = one.node.bounds;
+      @if (one.quick) {
+        <div
+          class="quick"
+          [style.left.px]="(b.x + b.w) * z + 10"
+          [style.top.px]="b.y * z - 4"
+          role="toolbar"
+          aria-label="Add next element"
+        >
+          @for (st of quickStencils; track st) {
+            <button
+              type="button"
+              class="quick-item"
+              draggable="true"
+              [pTooltip]="stencilTitle(st) | translate"
+              tooltipPosition="top"
+              [attr.aria-label]="stencilTitle(st) | translate"
+              (click)="quickAdd(st, one.node.id)"
+              (dragstart)="quickDragStart($event, st, one.node.id)"
+              (dragend)="dragEnd()"
+            >
+              <span [fmStencilIcon]="st" [doc]="doc()"></span>
+            </button>
+          }
+          <button
+            type="button"
+            class="quick-item connect"
+            data-handle="connect"
+            pTooltip="Drag to connect"
+            tooltipPosition="top"
+            aria-label="Drag to connect to another element"
+          >
+            <i class="pi pi-arrow-up-right"></i>
+          </button>
+        </div>
+      }
+      <div class="shape-actions" [style.left.px]="b.x * z" [style.top.px]="(b.y + b.h) * z + 8">
+        <button
+          type="button"
+          class="quick-item"
+          [pTooltip]="'BUTTON.ACTION.DELETE.TOOLTIP' | translate"
+          [attr.aria-label]="'BUTTON.ACTION.DELETE.TOOLTIP' | translate"
+          (click)="doc().deleteSelection()"
+        >
+          <i class="pi pi-trash"></i>
+        </button>
+        @if (one.morph) {
+          <button
+            type="button"
+            class="quick-item"
+            [pTooltip]="'BUTTON.ACTION.MORPH.TOOLTIP' | translate"
+            [attr.aria-label]="'BUTTON.ACTION.MORPH.TOOLTIP' | translate"
+            (click)="openMorph($event, one.node.id)"
+          >
+            <i class="pi pi-wrench"></i>
+          </button>
+        }
+      </div>
+    }
+
+    @if (editing(); as e) {
+      <textarea
+        class="inline-edit"
+        aria-label="Name"
+        [style.left.px]="e.box.x * z"
+        [style.top.px]="e.box.y * z"
+        [style.width.px]="e.box.w * z"
+        [style.height.px]="e.box.h * z"
+        [value]="e.value"
+        (input)="setEditValue($any($event.target).value)"
+        (keydown)="onEditKey($event)"
+        (blur)="commitEdit()"
+      ></textarea>
+    }
+  </div>
+</div>

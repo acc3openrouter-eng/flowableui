@@ -15,7 +15,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the feature inventory and the phased plan.
 | 3 | Form builder (palette with drag and drop, field properties, outcomes, save with new version, unsaved-changes guard) | done |
 | 4 | Decision table editor (hit policy, input and output columns with allowed values, rules, Force DMN 1.1, save with new version) | done |
 | 5 | App definition editor (icon, theme, access, included process and case models, save and publish) | done |
-| 6 | Diagram engine + BPMN editor | planned |
+| 6 | Diagram engine + BPMN process editor (palette, canvas, quick menu, morph, property panel with all property editors, undo, copy and paste, align, zoom, save with conflict handling, validation) | done |
 | 7 | CMMN and DMN decision service editors | planned |
 | 8 | Polish, e2e tests | planned |
 
@@ -60,6 +60,17 @@ from the same origin as the Flowable UI server (or through a reverse proxy, like
 - The app definition editor shows a live preview of the app tile, picks icons from a grid instead of a dropdown,
   and picks included models as selectable cards with thumbnails. Bootstrap glyphicons are mapped to Optimus icons
   for display but stored unchanged, so apps stay compatible with the Flowable task app.
+- The BPMN editor replaces Oryx with its own SVG engine that draws shapes from the same stencil set and reads and
+  writes the same editor JSON. Differences you will notice:
+  - The property panel sits on the right, edits simple properties inline (text properties too, instead of a popup),
+    and can be filtered. The palette can be searched and a click adds an element in the middle of the view.
+  - Bend points are added by dragging a flow segment's midpoint and removed by double-clicking them, so the
+    bend point toolbar buttons are gone. There is no guided tour; the help button lists the editing tips instead.
+  - Deleting a shape also deletes its flows, Ctrl+X cuts, Backspace deletes and Ctrl+S opens the save dialog.
+  - The quick menu steps new shapes down when the spot east of the source is taken, instead of stacking them.
+  - On a save conflict you can overwrite or create a new version; "save as" is left out because it fails in 6.8.1.
+  - The canvas stays light in dark mode, like a sheet of paper.
+  - Collapsed sub-processes keep their content but cannot be opened for editing yet.
 
 ## License
 

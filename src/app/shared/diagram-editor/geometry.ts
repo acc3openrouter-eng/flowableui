@@ -53,11 +53,7 @@ export function distanceToSegment(p: Point, a: Point, b: Point): number {
  * Where the segment from `inside` to `outside` leaves a shape, found by bisection like Oryx's
  * `getIntersectionPoint`. Returns null when both points are on the same side.
  */
-export function clipToOutline(
-  a: Point,
-  b: Point,
-  contains: (p: Point) => boolean,
-): Point | null {
+export function clipToOutline(a: Point, b: Point, contains: (p: Point) => boolean): Point | null {
   const aIn = contains(a);
   const bIn = contains(b);
   if (aIn === bIn) return null;

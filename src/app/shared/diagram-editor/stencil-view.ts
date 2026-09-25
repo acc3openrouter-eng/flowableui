@@ -108,7 +108,10 @@ function parseAnchors(value: string | null): Anchors {
 
 function parseSize(value: string | null): { w: number; h: number } | null {
   if (!value) return null;
-  const parts = value.trim().split(/[\s,]+/).map(Number);
+  const parts = value
+    .trim()
+    .split(/[\s,]+/)
+    .map(Number);
   if (parts.length < 2 || parts.some((n) => Number.isNaN(n))) return { w: 1, h: 1 };
   return { w: parts[0], h: parts[1] };
 }
@@ -135,7 +138,10 @@ function inheritedFontSize(el: Element, stop: Element): number {
   return 12;
 }
 
-function readGeometry(el: Element, kind: ShapeKind): Pick<ViewShape, 'box' | 'segments' | 'points'> {
+function readGeometry(
+  el: Element,
+  kind: ShapeKind,
+): Pick<ViewShape, 'box' | 'segments' | 'points'> {
   switch (kind) {
     case 'rect':
       return {
@@ -160,9 +166,13 @@ function readGeometry(el: Element, kind: ShapeKind): Pick<ViewShape, 'box' | 'se
       return { box: { x, y, w: Math.max(x1, x2) - x, h: Math.max(y1, y2) - y } };
     }
     case 'poly': {
-      const values = (el.getAttribute('points') ?? '').trim().split(/[\s,]+/).map(Number);
+      const values = (el.getAttribute('points') ?? '')
+        .trim()
+        .split(/[\s,]+/)
+        .map(Number);
       const points: Point[] = [];
-      for (let i = 0; i + 1 < values.length; i += 2) points.push({ x: values[i], y: values[i + 1] });
+      for (let i = 0; i + 1 < values.length; i += 2)
+        points.push({ x: values[i], y: values[i + 1] });
       const xs = points.map((p) => p.x);
       const ys = points.map((p) => p.y);
       const x = Math.min(...xs);
@@ -274,7 +284,10 @@ export function renderLabel(
   const n = lines.length;
   text.setAttribute('x', String(Math.floor(x)));
   text.setAttribute('y', String(Math.floor(y)));
-  text.setAttribute('text-anchor', hAlign === 'left' ? 'start' : hAlign === 'right' ? 'end' : 'middle');
+  text.setAttribute(
+    'text-anchor',
+    hAlign === 'left' ? 'start' : hAlign === 'right' ? 'end' : 'middle',
+  );
   text.setAttribute('font-family', DIAGRAM_FONT);
   text.setAttribute('stroke-width', '0');
   lines.forEach((line, i) => {
@@ -327,7 +340,8 @@ function prefixIds(root: Element, prefix: string) {
     }
     for (const attr of ['fill', 'stroke', 'marker-start', 'marker-mid', 'marker-end']) {
       const v = el.getAttribute(attr);
-      if (v?.includes('url(#')) el.setAttribute(attr, v.replace(/url\(#([^)]+)\)/g, `url(#${prefix}$1)`));
+      if (v?.includes('url(#'))
+        el.setAttribute(attr, v.replace(/url\(#([^)]+)\)/g, `url(#${prefix}$1)`));
     }
   }
 }
@@ -471,8 +485,24 @@ export class NodeView {
   }
 
   private layoutShape(s: ViewShape, W: number, H: number) {
-    const [x, w] = layoutAxis(s.box.x, s.box.w, this.width, W, s.resizeH, s.anchors.left, s.anchors.right);
-    const [y, h] = layoutAxis(s.box.y, s.box.h, this.height, H, s.resizeV, s.anchors.top, s.anchors.bottom);
+    const [x, w] = layoutAxis(
+      s.box.x,
+      s.box.w,
+      this.width,
+      W,
+      s.resizeH,
+      s.anchors.left,
+      s.anchors.right,
+    );
+    const [y, h] = layoutAxis(
+      s.box.y,
+      s.box.h,
+      this.height,
+      H,
+      s.resizeV,
+      s.anchors.top,
+      s.anchors.bottom,
+    );
     const box = { x, y, w, h };
     const sx = s.box.w ? w / s.box.w : 0;
     const sy = s.box.h ? h / s.box.h : 0;

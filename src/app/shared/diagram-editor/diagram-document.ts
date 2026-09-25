@@ -11,7 +11,7 @@ import {
   saveDiagram,
   withDefaults,
 } from './diagram-model';
-import { Box, Point, center, clipToOutline, inBox } from './geometry';
+import { Box, Point, boxOfPoints, center, clipToOutline, inBox, unionBox } from './geometry';
 import { Stencil, StencilSet } from './stencil-set';
 import { EdgeView, NodeLayout, NodeView } from './stencil-view';
 
@@ -101,7 +101,9 @@ export class DiagramDocument {
       node.stencil,
       node.bounds.w,
       node.bounds.h,
-      refs.map((r) => (r.type === 'boolean' || r.type.includes('multi') ? node.properties[r.key] : 0)),
+      refs.map((r) =>
+        r.type === 'boolean' || r.type.includes('multi') ? node.properties[r.key] : 0,
+      ),
     ]);
     const cached = this.layouts.get(node.id);
     if (cached?.key === key) return cached.layout;
@@ -117,7 +119,10 @@ export class DiagramDocument {
 
   /** Is the absolute point inside the node's visible outline? */
   containsPoint(node: DiagramNode, p: Point): boolean {
-    return NodeView.contains(this.layoutOf(node), { x: p.x - node.bounds.x, y: p.y - node.bounds.y });
+    return NodeView.contains(this.layoutOf(node), {
+      x: p.x - node.bounds.x,
+      y: p.y - node.bounds.y,
+    });
   }
 
   /** The rendered polyline of an edge: bends plus both ends clipped to the docked outlines. */
@@ -174,6 +179,25 @@ export class DiagramDocument {
   markSaved() {
     this.savedRevision.set(this.revision());
     this.savedJson.set(this.serialize());
+  }
+
+  /** Applies what the server changed while saving (process id, name...) and marks the result saved. */
+  markSavedWith(change: (draft: DiagramState) => void) {
+    const draft = structuredClone(this.committed());
+    change(draft);
+    this.committed.set(draft);
+    this.markSaved();
+  }
+
+  /** Bounding box of all shapes and flows, or null for an empty diagram. */
+  contentBox(): Box | null {
+    const s = this.committed();
+    const boxes: Box[] = Object.values(s.nodes).map((n) => n.bounds);
+    for (const e of Object.values(s.edges)) {
+      const pts = this.route(e, s);
+      if (pts.length) boxes.push(boxOfPoints(pts));
+    }
+    return unionBox(boxes);
   }
 
   // Undo
@@ -324,8 +348,24 @@ export class DiagramDocument {
       this.nodeView(stencilId).height,
     );
     const c = center(source.bounds);
-    const point = at ?? { x: c.x + source.bounds.w / 2 + QUICK_ADD_GAP + size.w / 2, y: c.y };
     const parent = source.host ? state.nodes[source.host.id]?.parent : source.parent;
+    const point = at ?? { x: c.x + source.bounds.w / 2 + QUICK_ADD_GAP + size.w / 2, y: c.y };
+    if (!at) {
+      // Unlike the original, step down past shapes already there so the new one stays visible.
+      const siblings = Object.values(state.nodes).filter(
+        (n) => n.parent === (parent ?? null) && !n.host,
+      );
+      const overlaps = (p: Point) =>
+        siblings.some((n) =>
+          boxesOverlap(n.bounds, {
+            x: p.x - size.w / 2,
+            y: p.y - size.h / 2,
+            w: size.w,
+            h: size.h,
+          }),
+        );
+      for (let i = 0; i < 20 && overlaps(point); i++) point.y += size.h + QUICK_ADD_GAP / 2;
+    }
     const id = newResourceId();
     this.update((draft) => {
       createNode(this, draft, id, stencilId, point, parent ?? null);
@@ -430,11 +470,18 @@ export class DiagramDocument {
       for (const n of clip.nodes) {
         const copy = structuredClone(n);
         copy.id = ids.get(n.id)!;
-        copy.bounds = { ...copy.bounds, x: copy.bounds.x + PASTE_OFFSET, y: copy.bounds.y + PASTE_OFFSET };
+        copy.bounds = {
+          ...copy.bounds,
+          x: copy.bounds.x + PASTE_OFFSET,
+          y: copy.bounds.y + PASTE_OFFSET,
+        };
         copy.children = n.children.filter((c) => ids.has(c)).map((c) => ids.get(c)!);
         // Top-level copies go on the canvas, like Oryx.
         copy.parent = n.parent && inClip.has(n.parent) ? ids.get(n.parent)! : null;
-        if (copy.host) copy.host = inClip.has(copy.host.id) ? { ...copy.host, id: ids.get(copy.host.id)! } : null;
+        if (copy.host)
+          copy.host = inClip.has(copy.host.id)
+            ? { ...copy.host, id: ids.get(copy.host.id)! }
+            : null;
         if (!copy.host && n.host) {
           // A boundary event copied without its activity cannot stand alone.
           continue;
@@ -449,7 +496,10 @@ export class DiagramDocument {
         copy.id = ids.get(e.id)!;
         if (copy.source) copy.source = { ...copy.source, id: ids.get(copy.source.id)! };
         if (copy.target) copy.target = { ...copy.target, id: ids.get(copy.target.id)! };
-        if ((copy.source && !draft.nodes[copy.source.id]) || (copy.target && !draft.nodes[copy.target.id])) {
+        if (
+          (copy.source && !draft.nodes[copy.source.id]) ||
+          (copy.target && !draft.nodes[copy.target.id])
+        ) {
           continue;
         }
         copy.bends = copy.bends.map((b) => ({ x: b.x + PASTE_OFFSET, y: b.y + PASTE_OFFSET }));
@@ -461,7 +511,8 @@ export class DiagramDocument {
         pasted.push(copy.id);
       }
       // Shift the clipboard so the next paste lands further away.
-      for (const n of clip.nodes) n.bounds = { ...n.bounds, x: n.bounds.x + PASTE_OFFSET, y: n.bounds.y + PASTE_OFFSET };
+      for (const n of clip.nodes)
+        n.bounds = { ...n.bounds, x: n.bounds.x + PASTE_OFFSET, y: n.bounds.y + PASTE_OFFSET };
       for (const e of clip.edges) {
         e.bends = e.bends.map((b) => ({ x: b.x + PASTE_OFFSET, y: b.y + PASTE_OFFSET }));
       }
@@ -484,7 +535,12 @@ export class DiagramDocument {
         for (const n of drafts) {
           const size = this.nodeView(n.stencil).clampSize(w, h);
           const c = center(n.bounds);
-          resizeNode(this, draft, n.id, { x: c.x - size.w / 2, y: c.y - size.h / 2, w: size.w, h: size.h });
+          resizeNode(this, draft, n.id, {
+            x: c.x - size.w / 2,
+            y: c.y - size.h / 2,
+            w: size.w,
+            h: size.h,
+          });
         }
         return;
       }
@@ -556,7 +612,12 @@ export function createNode(
     id,
     stencil: stencilId,
     properties: stencil ? doc.stencils.defaultProperties(stencil) : {},
-    bounds: { x: Math.max(0, at.x - size.w / 2), y: Math.max(0, at.y - size.h / 2), w: size.w, h: size.h },
+    bounds: {
+      x: Math.max(0, at.x - size.w / 2),
+      y: Math.max(0, at.y - size.h / 2),
+      w: size.w,
+      h: size.h,
+    },
     parent: parentId,
     children: [],
     host: null,
@@ -591,7 +652,12 @@ export function attach(draft: DiagramState, event: DiagramNode, host: DiagramNod
 /** Is `p` within the attach band along the host's border? */
 export function nearBorder(host: DiagramNode, p: Point): boolean {
   const b = host.bounds;
-  const inner = { x: b.x + ATTACH_DISTANCE, y: b.y + ATTACH_DISTANCE, w: b.w - 2 * ATTACH_DISTANCE, h: b.h - 2 * ATTACH_DISTANCE };
+  const inner = {
+    x: b.x + ATTACH_DISTANCE,
+    y: b.y + ATTACH_DISTANCE,
+    w: b.w - 2 * ATTACH_DISTANCE,
+    h: b.h - 2 * ATTACH_DISTANCE,
+  };
   return inBox(p, b, ATTACH_DISTANCE) && !(inner.w > 0 && inner.h > 0 && inBox(p, inner));
 }
 
@@ -694,8 +760,10 @@ export function scaleDocks(draft: DiagramState, id: string, from: Box, to: Box) 
   const sx = from.w ? to.w / from.w : 1;
   const sy = from.h ? to.h / from.h : 1;
   for (const edge of Object.values(draft.edges)) {
-    if (edge.source?.id === id) edge.source.ref = { x: edge.source.ref.x * sx, y: edge.source.ref.y * sy };
-    if (edge.target?.id === id) edge.target.ref = { x: edge.target.ref.x * sx, y: edge.target.ref.y * sy };
+    if (edge.source?.id === id)
+      edge.source.ref = { x: edge.source.ref.x * sx, y: edge.source.ref.y * sy };
+    if (edge.target?.id === id)
+      edge.target.ref = { x: edge.target.ref.x * sx, y: edge.target.ref.y * sy };
   }
   for (const n of Object.values(draft.nodes)) {
     if (n.host?.id === id) {
@@ -761,7 +829,12 @@ function addLane(doc: DiagramDocument, draft: DiagramState, poolId: string) {
   const id = newResourceId();
   createNode(doc, draft, id, 'Lane', center(pool.bounds), poolId);
   const lane = draft.nodes[id];
-  lane.bounds = { x: pool.bounds.x + POOL_CAPTION, y: pool.bounds.y, w: pool.bounds.w - POOL_CAPTION, h: pool.bounds.h };
+  lane.bounds = {
+    x: pool.bounds.x + POOL_CAPTION,
+    y: pool.bounds.y,
+    w: pool.bounds.w - POOL_CAPTION,
+    h: pool.bounds.h,
+  };
 }
 
 /** Stacks a pool's lanes to the right of its caption; the pool takes their total height. */
@@ -782,7 +855,8 @@ export function layoutPool(draft: DiagramState, poolId: string, previous?: Box) 
     const old = { ...lane.bounds };
     lane.bounds = { x: pool.bounds.x + POOL_CAPTION, y, w: pool.bounds.w - POOL_CAPTION, h };
     if (dx || dy) shiftDescendants(draft, lane.id, dx, dy);
-    if (old.w !== lane.bounds.w || old.h !== lane.bounds.h) scaleDocks(draft, lane.id, old, lane.bounds);
+    if (old.w !== lane.bounds.w || old.h !== lane.bounds.h)
+      scaleDocks(draft, lane.id, old, lane.bounds);
     y += h;
   }
   pool.bounds = { ...pool.bounds, h: y - pool.bounds.y };
@@ -794,4 +868,8 @@ function shiftDescendants(draft: DiagramState, id: string, dx: number, dy: numbe
     n.bounds = { ...n.bounds, x: n.bounds.x + dx, y: n.bounds.y + dy };
     shiftDescendants(draft, c, dx, dy);
   }
+}
+
+function boxesOverlap(a: Box, b: Box): boolean {
+  return a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
 }

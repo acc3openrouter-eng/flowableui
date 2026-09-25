@@ -163,7 +163,10 @@ export function loadDiagram(json: ModelJson, set: StencilSet, clamp: SizeClamp):
       state.nodes[node.id] = node;
       if (parent) parent.children.push(node.id);
       else state.roots.push(node.id);
-      outgoing.set(node.id, (shape.outgoing ?? []).map((o) => o.resourceId));
+      outgoing.set(
+        node.id,
+        (shape.outgoing ?? []).map((o) => o.resourceId),
+      );
       if (shape.dockers?.length) dockers.set(node.id, shape.dockers);
       // Collapsed sub-processes keep their children in their own canvas: leave them as data.
       if (shape.stencil.id === 'CollapsedSubProcess') {
