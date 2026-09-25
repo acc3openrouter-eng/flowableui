@@ -90,3 +90,20 @@ export const DMN_PROFILE: DiagramProfile = {
         ? 'Encapsulated decisions'
         : null,
 };
+
+const NO_LANES: PoolLayout = { isPool: () => false, isLane: () => false, caption: 0 };
+
+export const CMMN_PROFILE: DiagramProfile = {
+  kind: 'cmmn',
+  // The plan model comes with the case; the palette's association entry is broken in the original
+  // and associations are drawn from the quick menu.
+  paletteIgnored: new Set(['CasePlanModel', 'Association']),
+  dockedRoles: ['EntryCriterionOnItemBoundary', 'ExitCriterionOnItemBoundary'],
+  quickMenu: ['HumanTask'],
+  hasQuickMenu: (s) => s.rawRoles.includes('association_start'),
+  labelKey,
+  lanes: NO_LANES,
+  // Deleting the plan model leaves a case that cannot be rebuilt in the editor.
+  undeletable: new Set(['CasePlanModel']),
+  unmovable: () => false,
+};

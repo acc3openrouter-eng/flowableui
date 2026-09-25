@@ -16,7 +16,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the feature inventory and the phased plan.
 | 4 | Decision table editor (hit policy, input and output columns with allowed values, rules, Force DMN 1.1, save with new version) | done |
 | 5 | App definition editor (icon, theme, access, included process and case models, save and publish) | done |
 | 6 | Diagram engine + BPMN process editor (palette, canvas, quick menu, morph, property panel with all property editors, undo, copy and paste, align, zoom, save with conflict handling, validation) | done |
-| 7 | CMMN and DMN decision service editors | planned |
+| 7 | CMMN case model editor and DMN decision service editor on the same diagram engine | done |
 | 8 | Polish, e2e tests | planned |
 
 ## Development
@@ -71,6 +71,17 @@ from the same origin as the Flowable UI server (or through a reverse proxy, like
   - On a save conflict you can overwrite or create a new version; "save as" is left out because it fails in 6.8.1.
   - The canvas stays light in dark mode, like a sheet of paper.
   - Collapsed sub-processes keep their content but cannot be opened for editing yet.
+- The case model editor and the decision service editor run on the same engine. Beyond the points above:
+  - Entry and exit criteria dock on a task, stage or plan model border when dropped there, instead of being lost
+    on save. Plan items can only be dropped inside the plan model, and the plan model cannot be deleted.
+  - The "Start trigger plan item" picker of a timer listener lists the case's plan items (it is always empty in
+    6.8.1), and the ID variable property is saved under the key the converter reads.
+  - Associations and information requirements are drawn from the quick menu; the palette entries that fail in
+    6.8.1 are left out. Validate is only offered for process models, as before.
+  - The decision service and its two sections cannot be deleted, and the sections are captioned
+    "Output decisions" and "Encapsulated decisions".
+  - The case and decision table reference pickers select existing models only; creating or opening a model from
+    the picker is left out.
 
 ## License
 

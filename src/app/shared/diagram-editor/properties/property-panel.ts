@@ -114,7 +114,8 @@ export class PropertyPanel implements OnDestroy {
 
   protected readonly title = computed(() => {
     const name = String(this.properties()?.['name'] ?? '').trim();
-    return name || this.modelName();
+    // The model name stands for the root only; an unnamed element shows just its kind.
+    return this.element() ? name : name || this.modelName();
   });
 
   protected readonly rows = computed<PanelRow[]>(() => {
@@ -157,6 +158,31 @@ export class PropertyPanel implements OnDestroy {
         .filter((r) => r['id'])
         .map((r) => ({ value: String(r['id']), label: String(r['name'] || r['id']) })),
     ];
+  }
+
+  /** Plan items a timer listener can start on: every plan item in the case except itself. */
+  protected readonly planItemOptions = computed(() => {
+    const doc = this.doc();
+    const self = this.element()?.id;
+    const items = Object.values(doc.state().nodes)
+      .filter((n) => n.id !== self && !n.host && n.stencil !== 'CasePlanModel')
+      .filter((n) => {
+        const stencil = doc.stencils.stencil(n.stencil);
+        return !!stencil && !doc.stencils.isBoundaryEvent(stencil);
+      })
+      .map((n) => ({ value: n.id, label: stripTags(String(n.properties['name'] ?? '')) || n.id }))
+      .sort((a, b) => a.label.localeCompare(b.label));
+    return [{ value: '', label: '' }, ...items];
+  });
+
+  protected planItemId(value: unknown): string {
+    const v = complexValue(value) as Row | null;
+    return v && typeof v === 'object' ? String(v['id'] ?? '') : '';
+  }
+
+  protected setPlanItem(row: PanelRow, id: string) {
+    const option = this.planItemOptions().find((o) => o.value === id);
+    this.set(row, id && option ? { id, name: option.label } : '');
   }
 
   // Inline edits: kept here until blur/Enter, and flushed if the selection changes first.

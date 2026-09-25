@@ -1,5 +1,6 @@
 import {
   BPMN_PROFILE,
+  CMMN_PROFILE,
   DMN_PROFILE,
   DiagramProfile,
 } from '../../shared/diagram-editor/diagram-profile';
@@ -33,7 +34,7 @@ export const NOTATIONS: Record<NotationId, NotationConfig> = {
     validate: true,
   },
   cmmn: {
-    profile: BPMN_PROFILE,
+    profile: CMMN_PROFILE,
     stencilSet: 'cmmneditor',
     stencilsetUrl: '../editor/stencilsets/cmmn1.1/cmmn1.1.json',
     library: '/casemodels',

@@ -122,6 +122,20 @@
                   />
                 }
               }
+              @case ('planitem') {
+                <p-select
+                  size="small"
+                  appendTo="body"
+                  [inputId]="id"
+                  [options]="planItemOptions()"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="None"
+                  [filter]="planItemOptions().length > 8"
+                  [ngModel]="planItemId(row.value)"
+                  (ngModelChange)="setPlanItem(row, $event)"
+                />
+              }
               @default {
                 <button
                   type="button"
@@ -176,6 +190,7 @@
           [(visible)]="dialogVisible"
           [title]="d.row.editor.title"
           [source]="d.row.editor.source"
+          [excludeId]="doc().modelId"
           [value]="d.row.value"
           (save)="saveDialog($event)"
         />
