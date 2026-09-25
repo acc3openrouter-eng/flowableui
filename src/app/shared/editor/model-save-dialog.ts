@@ -7,7 +7,7 @@ import { DialogModule } from '@openng/optimus-ui/dialog';
 import { InputTextModule } from '@openng/optimus-ui/inputtext';
 import { MessageModule } from '@openng/optimus-ui/message';
 import { TextareaModule } from '@openng/optimus-ui/textarea';
-import { MODEL_KEY_PATTERN } from '../library/model-key';
+import { MODEL_KEY_PATTERN } from '../../features/library/model-key';
 
 export interface SaveRequest {
   name: string;
@@ -15,12 +15,30 @@ export interface SaveRequest {
   description: string;
   newVersion: boolean;
   comment: string;
+  /** Only sent for decision tables. */
+  forceDmn11: boolean;
   close: boolean;
 }
 
-/** "Save form" dialog: name, key, description, new version and comment. */
+/** Translation keys for one model type's save dialog. */
+export interface SaveDialogLabels {
+  title: string;
+  description?: string;
+  name: string;
+  key: string;
+  descriptionField: string;
+}
+
+export interface SaveDialogInitial {
+  name: string;
+  key: string;
+  description: string;
+  forceDmn11?: boolean;
+}
+
+/** Editor save dialog: name, key, description, new version and comment (plus "Force DMN 1.1" for decision tables). */
 @Component({
-  selector: 'fm-form-save-dialog',
+  selector: 'fm-model-save-dialog',
   imports: [
     FormsModule,
     TranslatePipe,
@@ -33,7 +51,7 @@ export interface SaveRequest {
   ],
   template: `
     <p-dialog
-      [header]="'FORM.POPUP.SAVE-FORM-TITLE' | translate"
+      [header]="labels().title | translate"
       [(visible)]="visible"
       [modal]="true"
       [draggable]="false"
@@ -41,9 +59,12 @@ export interface SaveRequest {
       [style]="{ width: '34rem' }"
       [breakpoints]="{ '640px': '95vw' }"
     >
+      @if (labels().description) {
+        <p class="intro">{{ labels().description! | translate }}</p>
+      }
       <form class="save-form" (ngSubmit)="submit(false)" #f="ngForm">
         <div class="field">
-          <label for="fs-name">{{ 'FORM.NAME' | translate }}</label>
+          <label for="fs-name">{{ labels().name | translate }}</label>
           <input
             id="fs-name"
             pInputText
@@ -54,7 +75,7 @@ export interface SaveRequest {
           />
         </div>
         <div class="field">
-          <label for="fs-key">{{ 'FORM.KEY' | translate }}</label>
+          <label for="fs-key">{{ labels().key | translate }}</label>
           <input
             id="fs-key"
             pInputText
@@ -72,7 +93,7 @@ export interface SaveRequest {
           }
         </div>
         <div class="field">
-          <label for="fs-description">{{ 'FORM.DESCRIPTION' | translate }}</label>
+          <label for="fs-description">{{ labels().descriptionField | translate }}</label>
           <textarea
             id="fs-description"
             pTextarea
@@ -85,6 +106,12 @@ export interface SaveRequest {
           <p-checkbox [binary]="true" name="newVersion" [(ngModel)]="newVersion" />
           {{ 'MODEL.SAVE.NEWVERSION' | translate }}
         </label>
+        @if (showForceDmn11()) {
+          <label class="check">
+            <p-checkbox [binary]="true" name="forceDmn11" [(ngModel)]="forceDmn11" />
+            {{ 'DECISION-TABLE.POPUP.FORCE-DMN-11' | translate }}
+          </label>
+        }
         @if (newVersion) {
           <div class="field">
             <label for="fs-comment">{{ 'MODEL.SAVE.COMMENT' | translate }}</label>
@@ -96,6 +123,9 @@ export interface SaveRequest {
               [(ngModel)]="comment"
             ></textarea>
           </div>
+        }
+        @if (warning()) {
+          <p-message severity="warn">{{ warning()! | translate }}</p-message>
         }
         @if (error()) {
           <p-message severity="error">{{ error() }}</p-message>
@@ -118,7 +148,7 @@ export interface SaveRequest {
           (onClick)="submit(false)"
         />
         <p-button
-          label="Save and close"
+          [label]="'ACTION.SAVE-AND-CLOSE' | translate"
           icon="pi pi-check"
           [loading]="saving()"
           [disabled]="f.invalid || saving()"
@@ -128,6 +158,10 @@ export interface SaveRequest {
     </p-dialog>
   `,
   styles: `
+    .intro {
+      margin: 0 0 1rem;
+      color: var(--p-text-muted-color);
+    }
     .save-form {
       display: flex;
       flex-direction: column;
@@ -153,9 +187,13 @@ export interface SaveRequest {
     }
   `,
 })
-export class FormSaveDialog {
+export class ModelSaveDialog {
   readonly visible = model(false);
-  readonly initial = input.required<{ name: string; key: string; description: string }>();
+  readonly labels = input.required<SaveDialogLabels>();
+  readonly initial = input.required<SaveDialogInitial>();
+  readonly showForceDmn11 = input(false);
+  /** Translation key of a non-blocking warning shown above the buttons. */
+  readonly warning = input<string | null>(null);
   readonly saving = input(false);
   readonly error = input<string | null>(null);
   readonly save = output<SaveRequest>();
@@ -166,6 +204,7 @@ export class FormSaveDialog {
   protected description = '';
   protected newVersion = false;
   protected comment = '';
+  protected forceDmn11 = false;
 
   constructor() {
     effect(() => {
@@ -177,6 +216,7 @@ export class FormSaveDialog {
         this.description = initial.description;
         this.newVersion = false;
         this.comment = '';
+        this.forceDmn11 = !!initial.forceDmn11;
       });
     });
   }
@@ -189,6 +229,7 @@ export class FormSaveDialog {
       description: this.description,
       newVersion: this.newVersion,
       comment: this.newVersion ? this.comment : '',
+      forceDmn11: this.forceDmn11,
       close,
     });
   }

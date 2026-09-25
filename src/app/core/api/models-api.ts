@@ -5,6 +5,7 @@ import { ApiUrls } from './api-urls';
 import {
   AppDefinitionRepresentation,
   DecisionTableRepresentation,
+  DecisionTableSaveRepresentation,
   FormRepresentation,
   FormSaveRepresentation,
   ModelQuery,
@@ -119,6 +120,14 @@ export class ModelsApi {
   /** Saves a form definition (`PUT /rest/form-models/{id}`). The server requires a PNG thumbnail. */
   saveForm(modelId: string, body: FormSaveRepresentation): Observable<FormRepresentation> {
     return this.http.put<FormRepresentation>(this.urls.formModel(modelId), body);
+  }
+
+  /** Saves a decision table (`PUT /rest/decision-table-models/{id}`). */
+  saveDecisionTable(
+    modelId: string,
+    body: DecisionTableSaveRepresentation,
+  ): Observable<DecisionTableRepresentation> {
+    return this.http.put<DecisionTableRepresentation>(this.urls.decisionTableModel(modelId), body);
   }
 
   publishApp(
