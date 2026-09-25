@@ -1,6 +1,6 @@
 @if (loaded.error()) {
   <p-message severity="error">
-    Could not open the process model. {{ loaded.error()?.message }}
+    Could not open the {{ config().typeLabel.toLowerCase() }}. {{ loaded.error()?.message }}
   </p-message>
 } @else if (!meta() || !doc()) {
   <p-skeleton height="4rem" borderRadius="1rem" />
@@ -19,8 +19,8 @@
         [text]="true"
         [rounded]="true"
         severity="secondary"
-        ariaLabel="Back to process model details"
-        [routerLink]="['/processes', m.modelId]"
+        [ariaLabel]="'Back to ' + config().typeLabel.toLowerCase() + ' details'"
+        [routerLink]="[config().library, m.modelId]"
       />
       <div>
         <h1>
@@ -31,7 +31,7 @@
         </h1>
         <p>
           <span class="key">{{ m.key }}</span>
-          <span>Process model</span>
+          <span>{{ config().typeLabel }}</span>
         </p>
       </div>
     </div>
@@ -42,15 +42,17 @@
         [text]="true"
         (onClick)="close()"
       />
-      <p-button
-        label="Validate"
-        icon="pi pi-check-circle"
-        severity="secondary"
-        [outlined]="true"
-        [pTooltip]="'TOOLBAR.ACTION.VALIDATE' | translate"
-        tooltipPosition="bottom"
-        (onClick)="validate()"
-      />
+      @if (config().validate) {
+        <p-button
+          label="Validate"
+          icon="pi pi-check-circle"
+          severity="secondary"
+          [outlined]="true"
+          [pTooltip]="'TOOLBAR.ACTION.VALIDATE' | translate"
+          tooltipPosition="bottom"
+          (onClick)="validate()"
+        />
+      }
       <p-button
         [label]="'GENERAL.ACTION.SAVE' | translate"
         icon="pi pi-save"
