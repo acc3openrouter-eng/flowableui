@@ -17,7 +17,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the feature inventory and the phased plan.
 | 5 | App definition editor (icon, theme, access, included process and case models, save and publish) | done |
 | 6 | Diagram engine + BPMN process editor (palette, canvas, quick menu, morph, property panel with all property editors, undo, copy and paste, align, zoom, save with conflict handling, validation) | done |
 | 7 | CMMN case model editor and DMN decision service editor on the same diagram engine | done |
-| 8 | Polish, e2e tests | planned |
+| 8 | Polish: collapsed sub-process editing, keyboard shortcuts, guided tour, accessibility audit, end-to-end tests in CI against Flowable | done |
 
 ## Development
 
@@ -30,6 +30,21 @@ npm start          # http://localhost:4200, proxies /flowable-ui to http://local
 npm test -- --watch=false
 npm run build      # output in dist/flowable-modeler/browser
 ```
+
+### End-to-end tests
+
+The Playwright tests in `e2e/` drive the app against a running Flowable UI: they sign in, create throwaway models
+through the REST API (and delete them afterwards), edit them in every editor, and check what the server exports.
+They also run an [axe](https://github.com/dequelabs/axe-core) accessibility audit on every page.
+
+```bash
+npx playwright install chromium   # once
+npm run e2e                       # starts the dev server unless E2E_BASE_URL is set
+```
+
+Settings: `E2E_BASE_URL` (an already running app), `E2E_USER` / `E2E_PASSWORD` (default `admin` / `test`), and
+`E2E_CHROMIUM` (path to a Chromium binary to use instead of Playwright's). CI runs the suite against the
+`flowable/flowable-ui:6.8.0` Docker image, the last one published for 6.8.
 
 Sign in with a Flowable user (the default distribution has `admin` / `test`).
 
@@ -65,12 +80,16 @@ from the same origin as the Flowable UI server (or through a reverse proxy, like
   - The property panel sits on the right, edits simple properties inline (text properties too, instead of a popup),
     and can be filtered. The palette can be searched and a click adds an element in the middle of the view.
   - Bend points are added by dragging a flow segment's midpoint and removed by double-clicking them, so the
-    bend point toolbar buttons are gone. There is no guided tour; the help button lists the editing tips instead.
+    bend point toolbar buttons are gone. The help button lists the editing tips and starts the guided tour, which
+    has Back buttons and highlights each area instead of showing animations.
   - Deleting a shape also deletes its flows, Ctrl+X cuts, Backspace deletes and Ctrl+S opens the save dialog.
   - The quick menu steps new shapes down when the spot east of the source is taken, instead of stacking them.
   - On a save conflict you can overwrite or create a new version; "save as" is left out because it fails in 6.8.1.
   - The canvas stays light in dark mode, like a sheet of paper.
-  - Collapsed sub-processes keep their content but cannot be opened for editing yet.
+  - A collapsed sub-process opens on its own canvas from the pencil under it (or Enter); a breadcrumb in the toolbar
+    leads back. There is no separate process navigator panel.
+  - Keyboard: Enter and Tab / Shift+Tab select elements, + / - / 0 zoom, and the selection is announced to screen
+    readers. Ctrl+S opens the save dialog in every editor.
 - The case model editor and the decision service editor run on the same engine. Beyond the points above:
   - Entry and exit criteria dock on a task, stage or plan model border when dropped there, instead of being lost
     on save. Plan items can only be dropped inside the plan model, and the plan model cannot be deleted.

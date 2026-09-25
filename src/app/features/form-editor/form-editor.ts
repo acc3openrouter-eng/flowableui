@@ -343,4 +343,13 @@ export class FormEditor implements HasUnsavedChanges {
   protected beforeUnload(event: BeforeUnloadEvent): void {
     if (this.dirty()) event.preventDefault();
   }
+
+  /** Ctrl/Cmd+S opens the save dialog, like in the diagram editors. */
+  @HostListener('window:keydown', ['$event'])
+  protected onSaveKey(event: KeyboardEvent): void {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's' && this.meta()) {
+      event.preventDefault();
+      if (!this.saveVisible()) this.openSave();
+    }
+  }
 }

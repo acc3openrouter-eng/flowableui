@@ -22,7 +22,14 @@ test.describe('accessibility', () => {
     await context.close();
   });
 
-  for (const path of ['processes', 'casemodels', 'forms', 'decision-tables', 'decision-services', 'apps']) {
+  for (const path of [
+    'processes',
+    'casemodels',
+    'forms',
+    'decision-tables',
+    'decision-services',
+    'apps',
+  ]) {
     test(`${path} library`, async ({ page }) => {
       await page.goto(`/#/${path}`);
       await expect(page.locator('main h1')).toBeVisible();

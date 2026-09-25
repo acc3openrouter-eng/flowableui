@@ -77,7 +77,7 @@ export { expect };
 /** Opens the save dialog of an editor and saves without a new version. */
 export async function save(page: Page) {
   await page.keyboard.press('Control+s');
-  const dialog = page.getByRole('dialog');
+  const dialog = page.getByRole('dialog').filter({ has: page.locator('#fs-name') });
   await expect(dialog).toBeVisible();
   await dialog.getByRole('button', { name: 'Save', exact: true }).click();
   await expect(page.locator('.unsaved')).toHaveCount(0);
