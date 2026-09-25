@@ -104,21 +104,48 @@ export interface FormSaveRepresentation {
 
 export interface DecisionTableExpression {
   id: string;
-  label?: string;
-  variableId?: string;
-  type?: string;
-  entries?: string[];
+  label?: string | null;
+  variableId?: string | null;
+  type?: string | null;
+  entries?: string[] | null;
+  newVariable?: boolean | null;
+  complexExpression?: boolean;
+}
+
+/** A rule row: `{inputId}_operator`, `{inputId}_expression` and `{outputId}` cells. */
+export type DecisionTableRule = Record<string, string | null>;
+
+export interface DecisionTableDefinition {
+  id?: string;
+  modelVersion?: string;
+  name?: string;
+  key?: string;
+  description?: string;
+  /** Hit policy: FIRST, ANY, UNIQUE, PRIORITY, RULE ORDER, OUTPUT ORDER or COLLECT. */
+  hitIndicator?: string;
+  collectOperator?: string | null;
+  completenessIndicator?: string;
+  inputExpressions?: DecisionTableExpression[];
+  outputExpressions?: DecisionTableExpression[];
+  rules?: DecisionTableRule[];
+  forceDMN11?: boolean;
 }
 
 export interface DecisionTableRepresentation extends ModelRepresentation {
-  decisionTableDefinition: {
-    key?: string;
-    hitPolicy?: string;
-    collectOperator?: string;
-    inputExpressions?: DecisionTableExpression[];
-    outputExpressions?: DecisionTableExpression[];
-    rules?: Record<string, string>[];
-    forceDMN11?: boolean;
+  decisionTableDefinition: DecisionTableDefinition;
+}
+
+export interface DecisionTableSaveRepresentation {
+  reusable: boolean;
+  newVersion: boolean;
+  comment: string;
+  /** PNG data URL used as the model thumbnail. */
+  decisionTableImageBase64: string;
+  decisionTableRepresentation: {
+    name: string;
+    key: string;
+    description?: string;
+    decisionTableDefinition: DecisionTableDefinition;
   };
 }
 

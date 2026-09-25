@@ -10,7 +10,7 @@ import { DecisionTableRepresentation } from '../../core/api/api.types';
     <div class="policy">
       <span>{{ 'DECISION-TABLE.HIT-POLICY' | translate }}</span>
       <strong
-        >{{ definition().hitPolicy ?? 'FIRST'
+        >{{ definition().hitIndicator ?? 'FIRST'
         }}{{
           definition().collectOperator ? ' (' + definition().collectOperator + ')' : ''
         }}</strong
@@ -45,12 +45,13 @@ import { DecisionTableRepresentation } from '../../core/api/api.types';
               <td class="index">{{ $index + 1 }}</td>
               @for (input of inputs(); track input.id) {
                 <td>
-                  @if (rule[input.id + '_operator'] || rule[input.id + '_expression']) {
-                    <code
-                      >{{ rule[input.id + '_operator'] }} {{ rule[input.id + '_expression'] }}</code
-                    >
-                  } @else {
+                  @let value = rule[input.id + '_expression'];
+                  @if (!value || value === '-') {
                     <span class="any">-</span>
+                  } @else if (!rule[input.id + '_operator'] || value.startsWith('$' + '{')) {
+                    <code>{{ value }}</code>
+                  } @else {
+                    <code>{{ rule[input.id + '_operator'] }} {{ value }}</code>
                   }
                 </td>
               }

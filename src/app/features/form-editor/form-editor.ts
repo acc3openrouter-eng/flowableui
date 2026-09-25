@@ -22,7 +22,6 @@ import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe, TranslateService } from '@ngx-translate/core';
 import { MessageService } from '@openng/optimus-ui/api';
 import { ButtonModule } from '@openng/optimus-ui/button';
-import { DialogModule } from '@openng/optimus-ui/dialog';
 import { InputTextModule } from '@openng/optimus-ui/inputtext';
 import { MessageModule } from '@openng/optimus-ui/message';
 import { RadioButtonModule } from '@openng/optimus-ui/radiobutton';
@@ -46,7 +45,16 @@ import {
   toEditorFields,
   toSavedFields,
 } from './form-field-types';
-import { FormSaveDialog, SaveRequest } from './form-save-dialog';
+import {
+  ModelSaveDialog,
+  SaveDialogLabels,
+  SaveRequest,
+} from '../../shared/editor/model-save-dialog';
+import {
+  LeaveChoice,
+  LeaveConfirmation,
+  UnsavedChangesDialog,
+} from '../../shared/editor/unsaved-changes-dialog';
 import { renderFormThumbnail } from './form-thumbnail';
 import { HasUnsavedChanges } from '../../core/guards/unsaved-changes.guard';
 
@@ -63,7 +71,6 @@ type Tab = 'design' | 'outcomes';
     RouterLink,
     TranslatePipe,
     ButtonModule,
-    DialogModule,
     InputTextModule,
     MessageModule,
     RadioButtonModule,
@@ -72,7 +79,8 @@ type Tab = 'design' | 'outcomes';
     TooltipModule,
     FieldPreview,
     FieldProperties,
-    FormSaveDialog,
+    ModelSaveDialog,
+    UnsavedChangesDialog,
   ],
   templateUrl: './form-editor.html',
   styleUrl: './form-editor.scss',
@@ -118,8 +126,13 @@ export class FormEditor implements HasUnsavedChanges {
   protected saveVisible = signal(false);
   protected readonly saving = signal(false);
   protected readonly saveError = signal<string | null>(null);
-  protected readonly leaveVisible = signal(false);
-  private leaveResolver: ((leave: boolean) => void) | null = null;
+  protected readonly leave = new LeaveConfirmation();
+  protected readonly saveLabels: SaveDialogLabels = {
+    title: 'FORM.POPUP.SAVE-FORM-TITLE',
+    name: 'FORM.NAME',
+    key: 'FORM.KEY',
+    descriptionField: 'FORM.DESCRIPTION',
+  };
 
   protected readonly saveInitial = computed(() => {
     const form = this.meta();
@@ -309,32 +322,17 @@ export class FormEditor implements HasUnsavedChanges {
   // Unsaved changes
 
   canLeave(): boolean | Promise<boolean> {
-    if (!this.dirty()) return true;
-    this.leaveVisible.set(true);
-    return new Promise<boolean>((resolve) => (this.leaveResolver = resolve));
+    return this.dirty() ? this.leave.ask() : true;
   }
 
-  protected resolveLeave(action: 'discard' | 'save' | 'continue'): void {
-    if (action === 'save') {
-      const initial = this.saveInitial();
-      this.persist({ ...initial, newVersion: false, comment: '' }).then((ok) => {
-        if (ok) this.finishLeave(true);
-      });
+  protected resolveLeave(choice: LeaveChoice): void {
+    if (choice !== 'save') {
+      this.leave.finish(choice === 'discard');
       return;
     }
-    this.finishLeave(action === 'discard');
-  }
-
-  protected onLeaveHide(): void {
-    // Closing the dialog with Escape or the close icon means "continue editing".
-    if (this.leaveResolver) this.finishLeave(false);
-  }
-
-  private finishLeave(leave: boolean): void {
-    const resolve = this.leaveResolver;
-    this.leaveResolver = null;
-    this.leaveVisible.set(false);
-    resolve?.(leave);
+    this.persist({ ...this.saveInitial(), newVersion: false, comment: '', forceDmn11: false }).then(
+      (ok) => ok && this.leave.finish(true),
+    );
   }
 
   @HostListener('window:beforeunload', ['$event'])

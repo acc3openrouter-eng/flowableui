@@ -1,0 +1,363 @@
+@if (table.error()) {
+  <p-message severity="error"
+    >Could not load the decision table. {{ table.error()?.message }}</p-message
+  >
+} @else if (!meta() || !def()) {
+  <p-skeleton height="4rem" borderRadius="1rem" />
+  <p-skeleton height="24rem" borderRadius="1rem" styleClass="mt-4" />
+} @else {
+  @let m = meta()!;
+  <header class="editor-header">
+    <div class="identity">
+      <p-button
+        icon="pi pi-arrow-left"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        ariaLabel="Back to decision table details"
+        [routerLink]="['/decision-tables', m.id]"
+      />
+      <div>
+        <h1>
+          {{ m.name }}
+          @if (dirty()) {
+            <span class="unsaved" title="Unsaved changes" aria-label="Unsaved changes"></span>
+          }
+        </h1>
+        <p>
+          <span class="key">{{ m.key }}</span>
+          <span>{{ 'FORM-BUILDER.VERSION' | translate: { version: m.version } }}</span>
+          @if (m.lastUpdated) {
+            <span>{{ m.lastUpdatedBy }} · {{ m.lastUpdated | date: 'medium' }}</span>
+          }
+        </p>
+      </div>
+    </div>
+    <div class="actions">
+      <p-button
+        [label]="'GENERAL.ACTION.CLOSE' | translate"
+        severity="secondary"
+        [text]="true"
+        (onClick)="close()"
+      />
+      <p-button
+        [label]="'GENERAL.ACTION.SAVE' | translate"
+        icon="pi pi-save"
+        (onClick)="openSave()"
+      />
+    </div>
+  </header>
+
+  <div class="toolbar">
+    <button type="button" class="policy" (click)="openHitPolicy()">
+      <span class="policy-label">{{ 'DECISION-TABLE.HIT-POLICY' | translate }}</span>
+      <strong>
+        {{ 'DECISION-TABLE.HIT-POLICIES.' + (def()!.hitIndicator || 'FIRST') | translate }}
+        @if (def()!.collectOperator) {
+          · {{ 'DECISION-TABLE.COLLECT-OPERATORS.' + def()!.collectOperator | translate }}
+        }
+      </strong>
+      <i class="pi pi-pencil" aria-hidden="true"></i>
+    </button>
+    <span class="spacer"></span>
+    <p-button
+      [label]="'DECISION-TABLE-EDITOR.BUTTON-ADD-INPUT-LABEL' | translate"
+      icon="pi pi-plus"
+      severity="secondary"
+      [outlined]="true"
+      size="small"
+      (onClick)="openColumn('input', null, inputs().length)"
+    />
+    <p-button
+      [label]="'DECISION-TABLE-EDITOR.BUTTON-ADD-OUTPUT-LABEL' | translate"
+      icon="pi pi-plus"
+      severity="secondary"
+      [outlined]="true"
+      size="small"
+      (onClick)="openColumn('output', null, outputs().length)"
+    />
+    <p-button
+      [label]="'DECISION-TABLE-EDITOR.BUTTON-ADD-RULE-LABEL' | translate"
+      icon="pi pi-plus"
+      size="small"
+      (onClick)="addRule()"
+    />
+  </div>
+
+  <div class="grid-wrap">
+    <table class="dt">
+      <thead>
+        <tr class="groups">
+          <th class="corner" rowspan="2">
+            <button
+              type="button"
+              class="badge"
+              (click)="openHitPolicy()"
+              [pTooltip]="'DECISION-TABLE.HIT-POLICY' | translate"
+              [attr.aria-label]="'DECISION-TABLE.HIT-POLICY' | translate"
+            >
+              {{ badge() }}
+            </button>
+          </th>
+          <th class="group input" [attr.colspan]="inputs().length * 2">
+            <span>Conditions</span>
+          </th>
+          <th class="group output" [attr.colspan]="outputs().length">
+            <span>Conclusions</span>
+          </th>
+        </tr>
+        <tr>
+          @for (column of inputs(); track column.id; let i = $index, last = $last) {
+            <th class="col-head input" colspan="2" [class.last-input]="last">
+              <ng-container
+                *ngTemplateOutlet="
+                  head;
+                  context: { column: column, kind: 'input', index: i, count: inputs().length }
+                "
+              />
+            </th>
+          }
+          @for (column of outputs(); track column.id; let i = $index) {
+            <th class="col-head output">
+              <ng-container
+                *ngTemplateOutlet="
+                  head;
+                  context: { column: column, kind: 'output', index: i, count: outputs().length }
+                "
+              />
+            </th>
+          }
+        </tr>
+      </thead>
+      <tbody>
+        @for (rule of rules(); track $index; let r = $index) {
+          <tr [class.selected]="selectedRow() === r" (focusin)="selectRow(r)">
+            <td class="index">
+              <button
+                type="button"
+                (click)="openRowMenu($event, r, rowMenuRef)"
+                [attr.aria-label]="'Rule ' + (r + 1) + ' actions'"
+              >
+                <span>{{ r + 1 }}</span>
+                <i class="pi pi-ellipsis-v" aria-hidden="true"></i>
+              </button>
+            </td>
+            @for (column of inputs(); track column.id; let last = $last) {
+              @let op = rule[operatorKey(column)];
+              @let value = rule[expressionKey(column)];
+              <td class="op" [class.muted]="operatorDisabled(op, value)">
+                <select
+                  [ngModel]="op"
+                  (ngModelChange)="setOperator(rule, column, $event)"
+                  [disabled]="operatorDisabled(op, value)"
+                  [attr.aria-label]="
+                    'Operator for ' + (column.label || column.variableId || 'input')
+                  "
+                >
+                  @for (option of operatorOptions(column, op); track option) {
+                    <option [ngValue]="option">{{ option }}</option>
+                  }
+                </select>
+              </td>
+              <td class="cond" [class.last-input]="last" [class.any]="value === '-'">
+                @if (inputChoices(column); as choices) {
+                  <select
+                    [ngModel]="value"
+                    (ngModelChange)="setCondition(rule, column, $event)"
+                    [attr.aria-label]="column.label || column.variableId || 'input'"
+                  >
+                    @for (option of withCurrent(choices, value); track option) {
+                      <option [ngValue]="option">{{ option }}</option>
+                    }
+                  </select>
+                } @else {
+                  <input
+                    [ngModel]="value"
+                    (ngModelChange)="setCondition(rule, column, $event)"
+                    [class.invalid]="invalidCell(column.type, value)"
+                    [placeholder]="column.type === 'date' ? 'YYYY-MM-DD' : ''"
+                    [attr.aria-label]="column.label || column.variableId || 'input'"
+                    spellcheck="false"
+                  />
+                }
+              </td>
+            }
+            @for (column of outputs(); track column.id) {
+              @let result = rule[column.id];
+              <td class="out">
+                @if (outputChoices(column); as choices) {
+                  <select
+                    [ngModel]="result ?? ''"
+                    (ngModelChange)="setConclusion(rule, column, $event)"
+                    [attr.aria-label]="column.label || column.variableId || 'output'"
+                  >
+                    @for (option of withCurrent(choices, result); track option) {
+                      <option [ngValue]="option">{{ option }}</option>
+                    }
+                  </select>
+                } @else {
+                  <input
+                    [ngModel]="result"
+                    (ngModelChange)="setConclusion(rule, column, $event)"
+                    [class.invalid]="invalidCell(column.type, result)"
+                    [placeholder]="column.type === 'date' ? 'YYYY-MM-DD' : ''"
+                    [attr.aria-label]="column.label || column.variableId || 'output'"
+                    spellcheck="false"
+                  />
+                }
+              </td>
+            }
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+  <button type="button" class="add-rule" (click)="addRule()">
+    <i class="pi pi-plus" aria-hidden="true"></i>
+    {{ 'DECISION-TABLE-EDITOR.BUTTON-ADD-RULE-LABEL' | translate }}
+  </button>
+  <p class="hint">
+    Use <code>-</code> for "any value" and <code>$&#123;...&#125;</code> for a custom expression.
+    Click a rule number for more actions.
+  </p>
+
+  <ng-template #head let-column="column" let-kind="kind" let-index="index" let-count="count">
+    <div class="head">
+      <button
+        type="button"
+        class="head-main"
+        (click)="openColumn(kind, column)"
+        [attr.aria-label]="'Edit column ' + (column.label || column.variableId || '')"
+      >
+        <span class="head-label">
+          {{ column.label || (kind === 'input' ? 'New Input' : 'New Output') }}
+        </span>
+        <span class="head-variable" [class.missing]="!column.variableId">
+          {{
+            column.variableId ||
+              ('DECISION-TABLE-EDITOR.EMPTY-MESSAGES.NO-VARIABLE-SELECTED' | translate)
+          }}
+          @if (column.type) {
+            <span class="head-type">{{ column.type }}</span>
+          }
+        </span>
+        @if (column.entries?.length) {
+          <span class="head-entries">[{{ column.entries.join(', ') }}]</span>
+        }
+      </button>
+      <span class="head-actions">
+        <p-button
+          icon="pi pi-plus"
+          [text]="true"
+          [rounded]="true"
+          size="small"
+          severity="secondary"
+          [ariaLabel]="kind === 'input' ? 'Add input after' : 'Add output after'"
+          [pTooltip]="
+            (kind === 'input'
+              ? 'DECISION-TABLE-EDITOR.BUTTON-ADD-INPUT-LABEL'
+              : 'DECISION-TABLE-EDITOR.BUTTON-ADD-OUTPUT-LABEL'
+            ) | translate
+          "
+          tooltipPosition="top"
+          (onClick)="openColumn(kind, null, index + 1)"
+        />
+        @if (count > 1) {
+          <p-button
+            icon="pi pi-minus"
+            [text]="true"
+            [rounded]="true"
+            size="small"
+            severity="danger"
+            ariaLabel="Remove column"
+            pTooltip="Remove column"
+            tooltipPosition="top"
+            (onClick)="removeColumn(kind, column)"
+          />
+        }
+      </span>
+    </div>
+  </ng-template>
+
+  <p-menu #rowMenuRef [model]="rowMenu" [popup]="true" appendTo="body" />
+
+  <fm-column-dialog
+    [(visible)]="columnVisible"
+    [kind]="columnKind()"
+    [column]="columnEditing()"
+    [hitPolicy]="def()!.hitIndicator"
+    (saved)="onColumnSaved($event)"
+  />
+
+  <p-dialog
+    header="Hit policy"
+    [(visible)]="hitPolicyVisible"
+    [modal]="true"
+    [draggable]="false"
+    [style]="{ width: '28rem' }"
+    [breakpoints]="{ '640px': '95vw' }"
+  >
+    <div class="policy-form">
+      <div class="field">
+        <label for="hp-policy">{{ 'DECISION-TABLE.HIT-POLICY' | translate }}</label>
+        <p-select inputId="hp-policy" [options]="$any(hitPolicies)" [(ngModel)]="hitPolicyDraft">
+          <ng-template #selectedItem let-item>{{
+            'DECISION-TABLE.HIT-POLICIES.' + item | translate
+          }}</ng-template>
+          <ng-template #item let-item>{{
+            'DECISION-TABLE.HIT-POLICIES.' + item | translate
+          }}</ng-template>
+        </p-select>
+      </div>
+      @if (hitPolicyDraft === 'COLLECT') {
+        <div class="field">
+          <label for="hp-collect">Collect operator</label>
+          <p-select
+            inputId="hp-collect"
+            [options]="collectOperators"
+            [(ngModel)]="collectOperatorDraft"
+            [showClear]="true"
+            placeholder="None"
+          >
+            <ng-template #selectedItem let-item>{{
+              'DECISION-TABLE.COLLECT-OPERATORS.' + item | translate
+            }}</ng-template>
+            <ng-template #item let-item>{{
+              'DECISION-TABLE.COLLECT-OPERATORS.' + item | translate
+            }}</ng-template>
+          </p-select>
+        </div>
+      }
+    </div>
+    <ng-template #footer>
+      <p-button
+        [label]="'GENERAL.ACTION.CANCEL' | translate"
+        severity="secondary"
+        [text]="true"
+        (onClick)="hitPolicyVisible.set(false)"
+      />
+      <p-button
+        [label]="'GENERAL.ACTION.SAVE' | translate"
+        icon="pi pi-check"
+        (onClick)="saveHitPolicy()"
+      />
+    </ng-template>
+  </p-dialog>
+
+  <fm-model-save-dialog
+    [labels]="saveLabels"
+    [(visible)]="saveVisible"
+    [initial]="saveInitial()"
+    [showForceDmn11]="true"
+    [warning]="saveWarning()"
+    [saving]="saving()"
+    [error]="saveError()"
+    (save)="onSave($event)"
+  />
+  <fm-unsaved-changes-dialog
+    [confirmation]="leave"
+    [saving]="saving()"
+    [error]="saveError()"
+    (choose)="resolveLeave($event)"
+  />
+}

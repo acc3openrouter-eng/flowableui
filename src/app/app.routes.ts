@@ -79,7 +79,12 @@ export const routes: Routes = [
       },
       {
         path: 'decision-table-editor/:modelId',
-        ...soon('Decision table editor', '/decision-tables'),
+        loadComponent: () =>
+          import('./features/decision-table-editor/decision-table-editor').then(
+            (m) => m.DecisionTableEditor,
+          ),
+        canDeactivate: [unsavedChangesGuard],
+        title: 'Decision table editor · Flowable Modeler',
       },
       { path: 'app-editor/:modelId', ...soon('App definition editor', '/apps') },
       { path: 'editor/:modelId', ...soon('Process editor', '/processes') },
