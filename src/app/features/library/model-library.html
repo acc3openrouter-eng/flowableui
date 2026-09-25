@@ -1,0 +1,138 @@
+<header class="page-header">
+  <div>
+    <h1>{{ kind().listI18n + '.TITLE' | translate }}</h1>
+    <p class="count">
+      @if (!loading()) {
+        @if (total() === 0 && searchText()) {
+          {{
+            kind().listI18n + '.FILTER.FILTER-TEXT-EMPTY' | translate: { filterText: searchText() }
+          }}
+        } @else if (total() > 0) {
+          <span>{{
+            kind().listI18n + '.FILTER.' + kind().filterI18n + (total() === 1 ? '-ONE' : '-COUNT')
+              | translate: { total: total() }
+          }}</span>
+          @if (searchText()) {
+            <span>{{
+              kind().listI18n + '.FILTER.FILTER-TEXT' | translate: { filterText: searchText() }
+            }}</span>
+          }
+        }
+      } @else {
+        &nbsp;
+      }
+    </p>
+  </div>
+  <div class="header-actions">
+    @if (kind().importUrl) {
+      <p-button
+        [label]="kind().importLabel! | translate"
+        icon="pi pi-upload"
+        severity="secondary"
+        [outlined]="true"
+        (onClick)="importVisible.set(true)"
+      />
+    }
+    <p-button [label]="kind().createLabel | translate" icon="pi pi-plus" (onClick)="openCreate()" />
+  </div>
+</header>
+
+@if (isDecisions()) {
+  <nav class="segmented" aria-label="Decision model types">
+    @for (tab of decisionTabs; track tab.id) {
+      <a
+        [routerLink]="tab.route"
+        routerLinkActive="active"
+        [attr.aria-current]="tab.id === kind().id ? 'page' : null"
+      >
+        <i [class]="tab.icon"></i>
+        {{ 'DECISIONS-LIST.FILTER.' + tab.filterI18n | translate }}
+      </a>
+    }
+  </nav>
+}
+
+<div class="toolbar">
+  <p-iconfield class="search">
+    <p-inputicon styleClass="pi pi-search" />
+    <input
+      pInputText
+      type="search"
+      [placeholder]="kind().listI18n + '.SEARCH-PLACEHOLDER' | translate"
+      [ngModel]="searchText()"
+      (ngModelChange)="searchText.set($event)"
+      [attr.aria-label]="kind().listI18n + '.SEARCH-PLACEHOLDER' | translate"
+    />
+  </p-iconfield>
+  <p-select
+    [options]="sorts"
+    optionValue="id"
+    [ngModel]="sort()"
+    (ngModelChange)="sort.set($event)"
+    ariaLabel="Sort"
+  >
+    <ng-template #selectedItem let-item>
+      <i class="pi pi-sort-alt"></i> {{ kind().listI18n + '.SORT.' + item.label | translate }}
+    </ng-template>
+    <ng-template #item let-item>{{
+      kind().listI18n + '.SORT.' + item.label | translate
+    }}</ng-template>
+  </p-select>
+  <p-button
+    icon="pi pi-refresh"
+    [text]="true"
+    [rounded]="true"
+    severity="secondary"
+    ariaLabel="Refresh"
+    (onClick)="refresh()"
+  />
+</div>
+
+@if (loading() && models().length === 0) {
+  <div class="grid">
+    @for (i of [1, 2, 3, 4, 5, 6, 7, 8]; track i) {
+      <p-skeleton height="15rem" borderRadius="1rem" />
+    }
+  </div>
+} @else if (models().length === 0 && !searchText()) {
+  <section class="empty">
+    <i [class]="kind().icon"></i>
+    <p>{{ kind().listI18n + '.FILTER.' + kind().filterI18n + '-EMPTY' | translate }}</p>
+    <div class="empty-actions">
+      <p-button
+        [label]="kind().createLabel | translate"
+        icon="pi pi-plus"
+        (onClick)="openCreate()"
+      />
+      @if (kind().importUrl) {
+        <p-button
+          [label]="kind().importLabel! | translate"
+          icon="pi pi-upload"
+          severity="secondary"
+          [outlined]="true"
+          (onClick)="importVisible.set(true)"
+        />
+      }
+    </div>
+  </section>
+} @else {
+  <div class="grid" [class.dimmed]="loading()">
+    @for (model of models(); track model.id) {
+      <fm-model-card [model]="model" [kind]="kind()" (duplicate)="openDuplicate($event)" />
+    }
+  </div>
+}
+
+<fm-create-model-dialog
+  [kind]="kind()"
+  [source]="duplicateSource()"
+  [(visible)]="createVisible"
+  (created)="onCreated($event)"
+/>
+@if (kind().importUrl) {
+  <fm-import-model-dialog
+    [kind]="kind()"
+    [(visible)]="importVisible"
+    (imported)="onImported($event)"
+  />
+}

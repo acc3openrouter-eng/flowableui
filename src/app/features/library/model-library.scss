@@ -1,0 +1,119 @@
+:host {
+  display: block;
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.25rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.625rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+  }
+}
+
+.count {
+  display: flex; // drops the whitespace between the count and the ", matching" suffix
+  flex-wrap: wrap;
+  margin: 0.25rem 0 0;
+  color: var(--p-text-muted-color);
+}
+
+.header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.segmented {
+  display: inline-flex;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  margin-bottom: 1rem;
+  background: var(--p-surface-100);
+  border-radius: var(--p-border-radius-lg);
+
+  a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.875rem;
+    font-weight: 500;
+    color: var(--p-text-muted-color);
+    text-decoration: none;
+    border-radius: var(--p-border-radius-md);
+
+    &.active {
+      color: var(--p-text-color);
+      background: var(--p-content-background);
+      box-shadow: 0 1px 3px rgb(15 23 42 / 0.12);
+    }
+  }
+}
+
+:host-context(.app-dark) .segmented {
+  background: var(--p-surface-800);
+}
+
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+
+  .search {
+    flex: 1 1 16rem;
+    max-width: 28rem;
+  }
+  .search input {
+    width: 100%;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 1rem;
+  transition: opacity 0.15s ease;
+
+  &.dimmed {
+    opacity: 0.6;
+  }
+}
+
+.empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  max-width: 36rem;
+  padding: 3rem 1.5rem;
+  margin: 2rem auto;
+  text-align: center;
+  border: 1px dashed var(--p-content-border-color);
+  border-radius: var(--p-border-radius-xl);
+
+  > i {
+    font-size: 2.75rem;
+    color: var(--p-primary-color);
+  }
+  p {
+    margin: 0;
+    color: var(--p-text-muted-color);
+    line-height: 1.5;
+  }
+}
+
+.empty-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}

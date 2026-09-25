@@ -1,0 +1,42 @@
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="topbar">
+  <a class="brand" routerLink="/processes" aria-label="Flowable Modeler">
+    <span class="logo" aria-hidden="true"><i class="pi pi-sitemap"></i></span>
+    <span class="brand-text">
+      <strong>Flowable</strong>
+      <span>Modeler</span>
+    </span>
+  </a>
+  <nav class="nav" aria-label="Model types">
+    @for (item of nav; track item.link) {
+      <a
+        [routerLink]="item.link"
+        routerLinkActive="active"
+        #rla="routerLinkActive"
+        [class.active]="rla.isActive || isAlsoActive(item)"
+      >
+        <i [class]="item.icon" aria-hidden="true"></i>
+        <span>{{ item.label | translate }}</span>
+      </a>
+    }
+  </nav>
+  <div class="right">
+    <p-button
+      [icon]="theme.dark() ? 'pi pi-sun' : 'pi pi-moon'"
+      [text]="true"
+      [rounded]="true"
+      severity="secondary"
+      [ariaLabel]="theme.dark() ? 'Light mode' : 'Dark mode'"
+      (onClick)="theme.toggle()"
+    />
+    <button type="button" class="user" (click)="menu.toggle($event)" aria-haspopup="menu">
+      <p-avatar [label]="initials()" shape="circle" />
+      <span class="user-name">{{ account.displayName() }}</span>
+      <i class="pi pi-angle-down" aria-hidden="true"></i>
+    </button>
+    <p-menu #menu [model]="userMenu()" [popup]="true" appendTo="body" />
+  </div>
+</header>
+<main id="main" class="content">
+  <router-outlet />
+</main>
