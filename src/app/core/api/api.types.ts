@@ -86,9 +86,20 @@ export interface FormField {
 
 export interface FormRepresentation extends ModelRepresentation {
   formDefinition: {
+    name?: string;
+    key?: string;
     fields?: FormField[];
     outcomes?: { id?: string; name: string }[];
   };
+}
+
+export interface FormSaveRepresentation {
+  reusable: boolean;
+  newVersion: boolean;
+  comment: string;
+  /** PNG data URL (`data:image/png;base64,...`) used as the model thumbnail. */
+  formImageBase64: string;
+  formRepresentation: FormRepresentation;
 }
 
 export interface DecisionTableExpression {

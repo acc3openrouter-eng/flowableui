@@ -12,7 +12,7 @@ See [docs/PLAN.md](docs/PLAN.md) for the feature inventory and the phased plan.
 | --- | --- | --- |
 | 1 | App shell, sign-in, REST client, translations, theme (light/dark) | done |
 | 2 | Model libraries (list, search, sort, create, duplicate, import) and details pages (preview, history, edit, delete, export, restore, publish) | done |
-| 3 | Form builder | planned |
+| 3 | Form builder (palette with drag and drop, field properties, outcomes, save with new version, unsaved-changes guard) | done |
 | 4 | Decision table editor | planned |
 | 5 | App definition editor | planned |
 | 6 | Diagram engine + BPMN editor | planned |
@@ -53,6 +53,8 @@ from the same origin as the Flowable UI server (or through a reverse proxy, like
 - URLs are kept (`#/processes`, `#/editor/:modelId`, ...), so existing bookmarks still work.
 - Sign-in is a built-in page that posts to the Flowable UI form login instead of redirecting to the IDM app.
 - Dark mode, responsive layout, and keyboard-accessible navigation are new.
+- The form builder edits fields in a side panel instead of a popup, can add fields by click as well as by drag,
+  warns about duplicate field ids, and draws the form thumbnail itself instead of using html2canvas.
 
 ## License
 

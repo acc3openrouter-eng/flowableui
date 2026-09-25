@@ -1,0 +1,325 @@
+@if (form.error()) {
+  <p-message severity="error">Could not load the form. {{ form.error()?.message }}</p-message>
+} @else if (!meta()) {
+  <p-skeleton height="4rem" borderRadius="1rem" />
+  <div class="layout loading">
+    <p-skeleton height="30rem" borderRadius="1rem" />
+    <p-skeleton height="30rem" borderRadius="1rem" />
+  </div>
+} @else {
+  @let m = meta()!;
+  <header class="editor-header">
+    <div class="identity">
+      <p-button
+        icon="pi pi-arrow-left"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        ariaLabel="Back to form details"
+        [routerLink]="['/forms', m.id]"
+      />
+      <div>
+        <h1>
+          {{ m.name }}
+          @if (dirty()) {
+            <span class="unsaved" title="Unsaved changes" aria-label="Unsaved changes"></span>
+          }
+        </h1>
+        <p>
+          <span class="key">{{ m.key }}</span>
+          <span>{{ 'FORM-BUILDER.VERSION' | translate: { version: m.version } }}</span>
+          @if (m.lastUpdated) {
+            <span>{{ m.lastUpdatedBy }} · {{ m.lastUpdated | date: 'medium' }}</span>
+          }
+        </p>
+      </div>
+    </div>
+    <div class="actions">
+      <p-button
+        [label]="'GENERAL.ACTION.CLOSE' | translate"
+        severity="secondary"
+        [text]="true"
+        (onClick)="close()"
+      />
+      <p-button
+        [label]="'GENERAL.ACTION.SAVE' | translate"
+        icon="pi pi-save"
+        (onClick)="openSave()"
+      />
+    </div>
+  </header>
+
+  <div class="layout" [class.with-properties]="!!selected() && tab() === 'design'">
+    <aside class="palette" aria-label="Field palette">
+      <h2>{{ 'FORM-BUILDER.TITLE.DESIGN' | translate }}</h2>
+      <div
+        class="palette-list"
+        cdkDropList
+        id="fm-palette"
+        [cdkDropListConnectedTo]="['fm-canvas']"
+        [cdkDropListSortingDisabled]="true"
+        [cdkDropListEnterPredicate]="noEnter"
+        [cdkDropListData]="palette"
+      >
+        @for (item of palette; track item.type) {
+          <button
+            type="button"
+            class="palette-item"
+            cdkDrag
+            [cdkDragData]="item"
+            (click)="addAfterSelection(item)"
+            [attr.aria-label]="'Add ' + ('FORM-BUILDER.PALLETTE.' + item.i18n | translate)"
+          >
+            <i [class]="item.icon" aria-hidden="true"></i>
+            <span>{{ 'FORM-BUILDER.PALLETTE.' + item.i18n | translate }}</span>
+            <div class="palette-placeholder" *cdkDragPlaceholder>
+              <i [class]="item.icon" aria-hidden="true"></i>
+              {{ 'FORM-BUILDER.PALLETTE.' + item.i18n | translate }}
+            </div>
+          </button>
+        }
+      </div>
+      <p class="hint">Drag a field onto the form, or click to add it.</p>
+    </aside>
+
+    <section class="canvas-wrap">
+      <nav class="segmented" role="tablist" aria-label="Form editor sections">
+        <button
+          type="button"
+          role="tab"
+          [class.active]="tab() === 'design'"
+          [attr.aria-selected]="tab() === 'design'"
+          (click)="tab.set('design')"
+        >
+          <i class="pi pi-th-large"></i> {{ 'FORM-BUILDER.TITLE.DESIGN' | translate }}
+          <span class="badge">{{ fields().length }}</span>
+        </button>
+        <button
+          type="button"
+          role="tab"
+          [class.active]="tab() === 'outcomes'"
+          [attr.aria-selected]="tab() === 'outcomes'"
+          (click)="tab.set('outcomes')"
+        >
+          <i class="pi pi-sign-out"></i> {{ 'FORM-BUILDER.TITLE.OUTCOME' | translate }}
+          @if (useOutcomes) {
+            <span class="badge">{{ outcomes.length }}</span>
+          }
+        </button>
+      </nav>
+
+      @if (tab() === 'design') {
+        <div
+          class="canvas"
+          id="fm-canvas"
+          cdkDropList
+          [cdkDropListData]="fields()"
+          (cdkDropListDropped)="drop($event)"
+          [class.empty]="fields().length === 0"
+        >
+          @for (
+            field of fields();
+            track field._guid;
+            let i = $index, first = $first, last = $last
+          ) {
+            <div
+              class="field-card"
+              cdkDrag
+              [cdkDragData]="field"
+              [class.selected]="field._guid === selectedGuid()"
+              (click)="select(field)"
+              (keydown.enter)="select(field)"
+              (keydown.delete)="remove(field)"
+              tabindex="0"
+              role="button"
+              [attr.aria-pressed]="field._guid === selectedGuid()"
+              [attr.aria-label]="(field.name || field.type) + ', ' + field.type"
+            >
+              <div class="card-top">
+                <span class="drag-handle" aria-hidden="true">
+                  <i class="pi pi-ellipsis-v"></i><i class="pi pi-ellipsis-v"></i>
+                </span>
+                <span class="type-chip">
+                  <i [class]="paletteItem(field.type)?.icon ?? 'pi pi-question'"></i>
+                  {{ 'FORM-BUILDER.PALLETTE.' + (paletteItem(field.type)?.i18n ?? '') | translate }}
+                </span>
+                @let fieldId = displayId(field, i);
+                @if (duplicateIds().has(fieldId)) {
+                  <code
+                    class="field-id duplicate"
+                    pTooltip="Another field uses this id"
+                    tooltipPosition="top"
+                    ><i class="pi pi-exclamation-triangle"></i> {{ fieldId }}</code
+                  >
+                } @else {
+                  <code class="field-id">{{ fieldId }}</code>
+                }
+                <span
+                  class="card-actions"
+                  (click)="$event.stopPropagation()"
+                  (keydown)="$event.stopPropagation()"
+                >
+                  <p-button
+                    icon="pi pi-arrow-up"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    severity="secondary"
+                    ariaLabel="Move up"
+                    [disabled]="first"
+                    (onClick)="move(i, -1)"
+                  />
+                  <p-button
+                    icon="pi pi-arrow-down"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    severity="secondary"
+                    ariaLabel="Move down"
+                    [disabled]="last"
+                    (onClick)="move(i, 1)"
+                  />
+                  <p-button
+                    icon="pi pi-trash"
+                    [text]="true"
+                    [rounded]="true"
+                    size="small"
+                    severity="danger"
+                    ariaLabel="Remove field"
+                    (onClick)="remove(field)"
+                  />
+                </span>
+              </div>
+              <fm-field-preview [field]="field" [rev]="revision()" />
+              <div class="drop-placeholder" *cdkDragPlaceholder></div>
+            </div>
+          } @empty {
+            <div class="canvas-empty">
+              <i class="pi pi-objects-column"></i>
+              <p>Drag fields from the palette to design your form.</p>
+            </div>
+          }
+        </div>
+        <div class="outcome-bar" aria-label="Outcome buttons preview">
+          @for (o of useOutcomes ? outcomes : []; track $index) {
+            @if (o.name) {
+              <span class="outcome">{{ o.name }}</span>
+            }
+          } @empty {
+            <span class="outcome">Complete</span>
+          }
+        </div>
+      } @else {
+        <div class="outcomes-panel">
+          <p>{{ 'FORM-BUILDER.OUTCOMES.DESCRIPTION' | translate }}</p>
+          <label class="choice">
+            <p-radiobutton
+              name="use-outcomes"
+              [value]="false"
+              [ngModel]="useOutcomes"
+              (ngModelChange)="setUseOutcomes($event)"
+            />
+            {{ 'FORM-BUILDER.OUTCOMES.NO-OUTCOMES-OPTION' | translate }}
+          </label>
+          <label class="choice">
+            <p-radiobutton
+              name="use-outcomes"
+              [value]="true"
+              [ngModel]="useOutcomes"
+              (ngModelChange)="setUseOutcomes($event)"
+            />
+            {{ 'FORM-BUILDER.OUTCOMES.OUTCOMES-OPTION' | translate }}
+          </label>
+          @if (useOutcomes) {
+            <h3>{{ 'FORM-BUILDER.OUTCOMES.POSSIBLE-OUTCOMES' | translate }}</h3>
+            <ul class="outcome-list">
+              @for (o of outcomes; track $index; let i = $index) {
+                <li>
+                  <input
+                    pInputText
+                    [(ngModel)]="o.name"
+                    (ngModelChange)="touch()"
+                    [placeholder]="'FORM-BUILDER.OUTCOMES.NEW-OUTCOME-PLACEHOLDER' | translate"
+                    [attr.aria-label]="'Outcome ' + (i + 1)"
+                  />
+                  <p-button
+                    [label]="'FORM-BUILDER.OUTCOMES.REMOVE' | translate"
+                    icon="pi pi-times"
+                    severity="secondary"
+                    [text]="true"
+                    (onClick)="removeOutcome(i)"
+                  />
+                </li>
+              }
+            </ul>
+            <p-button
+              [label]="'FORM-BUILDER.OUTCOMES.ADD' | translate"
+              icon="pi pi-plus"
+              severity="secondary"
+              [outlined]="true"
+              (onClick)="addOutcome()"
+            />
+          }
+        </div>
+      }
+    </section>
+
+    @if (tab() === 'design' && selected(); as field) {
+      <aside class="properties" aria-label="Field properties">
+        <fm-field-properties
+          [field]="field"
+          [index]="selectedIndex()"
+          (changed)="touch()"
+          (closed)="selectedGuid.set(null)"
+          (removed)="remove(field)"
+        />
+      </aside>
+    }
+  </div>
+
+  <fm-form-save-dialog
+    [(visible)]="saveVisible"
+    [initial]="saveInitial()"
+    [saving]="saving()"
+    [error]="saveError()"
+    (save)="onSave($event)"
+  />
+
+  <p-dialog
+    [header]="'EDITOR.POPUP.UNSAVED-CHANGES.TITLE' | translate"
+    [visible]="leaveVisible()"
+    (visibleChange)="!$event && onLeaveHide()"
+    [modal]="true"
+    [draggable]="false"
+    [closable]="!saving()"
+    [style]="{ width: '30rem' }"
+    [breakpoints]="{ '640px': '95vw' }"
+  >
+    <p>{{ 'EDITOR.POPUP.UNSAVED-CHANGES.DESCRIPTION' | translate }}</p>
+    @if (saveError()) {
+      <p-message severity="error">{{ saveError() }}</p-message>
+    }
+    <ng-template #footer>
+      <p-button
+        [label]="'EDITOR.POPUP.UNSAVED-CHANGES.ACTION.DISCARD' | translate"
+        severity="danger"
+        [text]="true"
+        [disabled]="saving()"
+        (onClick)="resolveLeave('discard')"
+      />
+      <p-button
+        [label]="'EDITOR.POPUP.UNSAVED-CHANGES.ACTION.CONTINUE' | translate"
+        severity="secondary"
+        [outlined]="true"
+        [disabled]="saving()"
+        (onClick)="resolveLeave('continue')"
+      />
+      <p-button
+        [label]="'EDITOR.POPUP.UNSAVED-CHANGES.ACTION.SAVE' | translate"
+        icon="pi pi-save"
+        [loading]="saving()"
+        (onClick)="resolveLeave('save')"
+      />
+    </ng-template>
+  </p-dialog>
+}

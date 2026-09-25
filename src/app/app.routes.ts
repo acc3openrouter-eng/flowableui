@@ -1,5 +1,6 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/auth/auth.guard';
+import { unsavedChangesGuard } from './core/guards/unsaved-changes.guard';
 
 const library = (kind: string, title: string) => ({
   loadComponent: () => import('./features/library/model-library').then((m) => m.ModelLibrary),
@@ -70,7 +71,12 @@ export const routes: Routes = [
       },
 
       // Editors (phases 3 to 7).
-      { path: 'form-editor/:modelId', ...soon('Form editor', '/forms') },
+      {
+        path: 'form-editor/:modelId',
+        loadComponent: () => import('./features/form-editor/form-editor').then((m) => m.FormEditor),
+        canDeactivate: [unsavedChangesGuard],
+        title: 'Form editor · Flowable Modeler',
+      },
       {
         path: 'decision-table-editor/:modelId',
         ...soon('Decision table editor', '/decision-tables'),
